@@ -1,0 +1,20 @@
+.hncn-toolbar { white-space: nowrap; }
+.hncn-toolbar button, .hncn-comment-button {
+  appearance: none; border: 0; background: transparent; color: #3c3c3c;
+  cursor: pointer; font: inherit; padding: 1px 4px; text-decoration: underline;
+}
+.hncn-toolbar button:disabled, .hncn-comment-button:disabled { cursor: wait; opacity: .55; }
+.hncn-status { color: #666; margin-left: 5px; }
+.hncn-error { color: #b42318; }
+.hncn-translation {
+  color: #333; display: block; font-size: 14px; line-height: 1.45; margin: 3px 0 1px;
+}
+.hncn-topic-match > td:last-child { border-left: 3px solid #ff6600; padding-left: 5px; }
+.hncn-comment-button { color: #828282; display: block; font-size: 10px; margin: 3px 0; padding: 0; }
+.hncn-comment-translation {
+  border-left: 2px solid #ff6600; color: #3c3c3c; line-height: 1.55; margin: 5px 0 8px;
+  max-width: 80ch; padding-left: 8px; white-space: pre-wrap;
+}
+@media (prefers-color-scheme: dark) {
+  .hncn-translation, .hncn-comment-translation { color: inherit; }
+}
