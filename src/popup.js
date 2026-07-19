@@ -2,6 +2,9 @@ const API = "https://hacker-news.firebaseio.com/v0";
 const PAGE_SIZE = 20;
 const COMMENT_LIMIT = 10;
 const TRANSLATION_CONCURRENCY = 3;
+const DEFAULT_UI_SCALE = 1.1;
+const MIN_UI_SCALE = 0.9;
+const MAX_UI_SCALE = 1.5;
 const MODEL_CHOICES = [
   { provider: "openai", model: "gpt-5-mini", label: "OpenAI · GPT-5 mini", keyUrl: "https://platform.openai.com/api-keys", keySite: "OpenAI Platform" },
   { provider: "anthropic", model: "claude-haiku-4-5", label: "Anthropic · Claude Haiku 4.5", keyUrl: "https://console.anthropic.com/settings/keys", keySite: "Claude Console" },
@@ -24,12 +27,18 @@ let settings = {};
 let activeFeed = "topstories";
 let stories = [];
 let progressRun = 0;
+let uiScale = DEFAULT_UI_SCALE;
+let currentPageLabelTimer;
+const listScrollPositions = new Map();
 const $ = (id) => document.getElementById(id);
 
 init();
 
 async function init() {
-  ({ settings = {} } = await chrome.storage.local.get("settings"));
+  const stored = await chrome.storage.local.get(["settings", "uiScale"]);
+  settings = stored.settings || {};
+  uiScale = normalizeUiScale(stored.uiScale);
+  applyUiScale();
   bindEvents();
   buildOnboarding();
   if (!settings.setupCompleted) {
@@ -40,19 +49,51 @@ async function init() {
 }
 
 function bindEvents() {
+  document.addEventListener("keydown", handleZoomShortcut, true);
+  $("translateCurrentPage").addEventListener("click", translateCurrentPage);
   $("settings").addEventListener("click", () => chrome.runtime.openOptionsPage());
-  $("refresh").addEventListener("click", () => loadFeed(true));
-  $("back").addEventListener("click", showList);
-  $("articleBack").addEventListener("click", showList);
+  $("main").addEventListener("scroll", updateHeaderVisibility, { passive: true });
+  $("refresh").addEventListener("click", () => loadFeed(true, true));
+  $("back").addEventListener("click", () => showList());
+  $("articleBack").addEventListener("click", () => showList());
   $("onboardingModel").addEventListener("change", updateOnboardingGuide);
   $("startReading").addEventListener("click", completeOnboarding);
   $("feeds").addEventListener("click", (event) => {
     const feed = event.target.dataset.feed;
     if (!feed || feed === activeFeed) return;
+    listScrollPositions.set(activeFeed, $("main").scrollTop);
     activeFeed = feed;
     document.querySelectorAll("#feeds button").forEach((button) => button.classList.toggle("active", button === event.target));
     loadFeed();
   });
+}
+
+function handleZoomShortcut(event) {
+  if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
+  let nextScale;
+  if (event.key === "+" || event.key === "=") nextScale = uiScale + 0.1;
+  else if (event.key === "-" || event.key === "_") nextScale = uiScale - 0.1;
+  else if (event.key === "0") nextScale = DEFAULT_UI_SCALE;
+  else return;
+  event.preventDefault();
+  event.stopPropagation();
+  uiScale = normalizeUiScale(nextScale);
+  applyUiScale();
+  chrome.storage.local.set({ uiScale }).catch(() => {});
+}
+
+function normalizeUiScale(value) {
+  const scale = Number(value);
+  if (!Number.isFinite(scale)) return DEFAULT_UI_SCALE;
+  return Math.min(MAX_UI_SCALE, Math.max(MIN_UI_SCALE, Math.round(scale * 10) / 10));
+}
+
+function applyUiScale() {
+  document.documentElement.style.setProperty("--ui-scale", String(uiScale));
+}
+
+function updateHeaderVisibility() {
+  document.body.classList.toggle("content-scrolled", $("main").scrollTop > 24);
 }
 
 function buildOnboarding() {
@@ -112,8 +153,9 @@ function setOnboardingError(message) {
   $("onboardingError").textContent = message;
 }
 
-async function loadFeed(force = false) {
-  showList();
+async function loadFeed(force = false, preserveScroll = false) {
+  if (preserveScroll && !$("stories").hidden) listScrollPositions.set(activeFeed, $("main").scrollTop);
+  showList(preserveScroll);
   setLoading(true, "正在获取 Hacker News…");
   setNotice("");
   try {
@@ -203,6 +245,7 @@ async function translateStoryTitles() {
 }
 
 async function openDiscussion(story) {
+  enterDetailView();
   $("stories").hidden = true;
   $("discussion").hidden = false;
   $("feeds").hidden = true;
@@ -257,6 +300,7 @@ async function openArticle(story) {
   const granted = await chrome.permissions.request({ origins: permissions });
   if (!granted) return setNotice("需要允许读取该文章网站，才能在侧边栏显示正文。", "error");
 
+  enterDetailView();
   $("stories").hidden = true;
   $("discussion").hidden = true;
   $("articleReader").hidden = false;
@@ -265,15 +309,21 @@ async function openArticle(story) {
   setLoading(true, "正在抓取文章正文…");
   setNotice("");
   try {
-    const response = await fetchArticle(story.url);
+    let response;
     let article;
     try {
+      response = await fetchArticle(story.url);
       article = extractArticle(response.html, response.finalUrl, story.title);
-    } catch (staticError) {
-      setLoading(true, "静态页面没有正文，正在后台渲染…");
-      article = await renderArticle(story.url);
+    } catch (fetchOrParseError) {
+      setLoading(true, "直接抓取失败，正在后台渲染…");
+      try {
+        article = await renderArticle(story.url);
+      } catch (backgroundError) {
+        setLoading(true, "网站阻止后台读取，已切换到原网页等待验证…");
+        article = await renderArticleInteractively(story.url);
+      }
     }
-    const articleUrl = article.finalUrl || response.finalUrl;
+    const articleUrl = article.finalUrl || response?.finalUrl || story.url;
     setLoading(true, `正在翻译文章（${article.blocks.length} 段）…`);
     if (settings.apiKey) {
       const [translatedTitle, ...translations] = await translateWithProgress([article.title, ...article.blocks], "正在翻译文章", 3);
@@ -291,6 +341,47 @@ async function openArticle(story) {
   }
 }
 
+async function translateCurrentPage() {
+  const granted = await chrome.permissions.request({ origins: ["https://*/*", "http://*/*"] });
+  if (!granted) return setNotice("需要允许读取网页，才能翻译当前页面。", "error");
+
+  const button = $("translateCurrentPage");
+  const label = button.querySelector("b");
+  clearTimeout(currentPageLabelTimer);
+  button.disabled = true;
+  label.textContent = "读取中…";
+  try {
+    const page = await extractActivePage();
+    label.textContent = "翻译中…";
+    const translations = await translateWithProgress(page.items.map((item) => item.text), "正在翻译当前网页", 3);
+    const items = page.items.map((item, index) => ({ id: item.id, translation: translations[index] }));
+    const result = await applyActivePageTranslations(page.tabId, items);
+    label.textContent = `已显示 ${result.applied} 段`;
+    currentPageLabelTimer = setTimeout(() => { label.textContent = "译当前页"; }, 1800);
+  } catch (error) {
+    setNotice(`当前网页翻译失败：${error.message}`, "error");
+    label.textContent = "译当前页";
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function extractActivePage() {
+  return new Promise((resolve, reject) => chrome.runtime.sendMessage({ type: "EXTRACT_ACTIVE_PAGE" }, (response) => {
+    if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+    else if (response?.ok) resolve(response);
+    else reject(new Error(response?.error || "当前网页正文提取失败"));
+  }));
+}
+
+function applyActivePageTranslations(tabId, items) {
+  return new Promise((resolve, reject) => chrome.runtime.sendMessage({ type: "APPLY_ACTIVE_PAGE_TRANSLATIONS", tabId, items }, (response) => {
+    if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+    else if (response?.ok) resolve(response);
+    else reject(new Error(response?.error || "无法在当前网页显示译文"));
+  }));
+}
+
 function fetchArticle(url) {
   return new Promise((resolve, reject) => chrome.runtime.sendMessage({ type: "FETCH_ARTICLE", url }, (response) => {
     if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
@@ -304,6 +395,14 @@ function renderArticle(url) {
     if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
     else if (response?.ok) resolve(response);
     else reject(new Error(response?.error || "后台渲染文章失败"));
+  }));
+}
+
+function renderArticleInteractively(url) {
+  return new Promise((resolve, reject) => chrome.runtime.sendMessage({ type: "RENDER_ARTICLE_INTERACTIVE", url }, (response) => {
+    if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+    else if (response?.ok) resolve(response);
+    else reject(new Error(response?.error || "可见网页读取失败"));
   }));
 }
 
@@ -444,11 +543,23 @@ function renderComment(comment, text, original = "") {
   $("comments").append(node);
 }
 
-function showList() {
+function enterDetailView() {
+  listScrollPositions.set(activeFeed, $("main").scrollTop);
+  $("main").scrollTop = 0;
+  updateHeaderVisibility();
+}
+
+function showList(restoreScroll = true) {
   $("stories").hidden = false;
   $("discussion").hidden = true;
   $("articleReader").hidden = true;
   $("feeds").hidden = false;
+  const targetScroll = restoreScroll ? listScrollPositions.get(activeFeed) || 0 : 0;
+  if (!restoreScroll) listScrollPositions.set(activeFeed, 0);
+  requestAnimationFrame(() => {
+    $("main").scrollTop = targetScroll;
+    updateHeaderVisibility();
+  });
 }
 
 function translate(texts) {
