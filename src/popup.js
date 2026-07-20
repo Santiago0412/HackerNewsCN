@@ -1,3 +1,5 @@
+import { articlePageNeedsInteraction } from "./lib/article.js";
+
 const API = "https://hacker-news.firebaseio.com/v0";
 const PAGE_SIZE = 20;
 const COMMENT_LIMIT = 10;
@@ -319,7 +321,7 @@ async function openArticle(story) {
       try {
         article = await renderArticle(story.url);
       } catch (backgroundError) {
-        setLoading(true, "网站阻止后台读取，已切换到原网页等待验证…");
+        setLoading(true, "已打开原网页；如提示登录，请完成登录，登录后会自动继续…");
         article = await renderArticleInteractively(story.url);
       }
     }
@@ -432,6 +434,9 @@ function extractArticle(html, finalUrl, fallbackTitle) {
     if (fallback.length >= 80) blocks.push(...chunkText(fallback, 2500));
   }
   if (!blocks.length || blocks.join("").length < 200) throw new Error("没有从页面中识别出足够的正文，网站可能需要登录或使用 JavaScript 加载内容");
+  if (articlePageNeedsInteraction({ url: finalUrl, title, text: blocks.join(" ") })) {
+    throw new Error("页面需要登录、验证或重新加载");
+  }
   return { title, blocks, finalUrl };
 }
 

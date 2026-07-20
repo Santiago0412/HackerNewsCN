@@ -1,7 +1,7 @@
 import { cacheKey, TranslationCache } from "./lib/cache.js";
 import { translateBatchResilient, PROMPT_VERSION } from "./lib/providers.js";
 import { DEFAULT_SETTINGS, normalizeSettings } from "./lib/settings.js";
-import { validateArticleUrl } from "./lib/article.js";
+import { articlePageNeedsInteraction, validateArticleUrl } from "./lib/article.js";
 
 const cache = new TranslationCache(chrome.storage.local);
 const inFlight = new Map();
@@ -169,6 +169,9 @@ async function renderArticleInBackground(value) {
     if (!article?.blocks?.length || article.blocks.join("").length < 200) {
       throw new Error("页面渲染后仍未找到正文，可能需要登录、存在付费墙或阻止自动读取");
     }
+    if (articlePageNeedsInteraction({ url: article.finalUrl || url.href, title: article.title, text: article.blocks.join(" ") })) {
+      throw new Error("页面需要登录、验证或重新加载");
+    }
     return article;
   } catch (error) {
     if (/Cannot access|permission|host permission/i.test(error.message)) throw new Error("没有该文章网站的读取权限，请重新点击并允许访问");
@@ -188,7 +191,7 @@ async function renderArticleInteractively(value) {
     } catch {
       return false;
     }
-  }) || matchingTabs[0];
+  });
 
   if (tab?.id) {
     tab = await chrome.tabs.update(tab.id, { active: true });
@@ -205,7 +208,12 @@ async function renderArticleInteractively(value) {
       const article = await extractArticleFromTab(tab.id);
       const hasUsefulContent = article?.blocks?.length && article.blocks.join("").length >= 200;
       const hasQueryData = url.hostname !== "data.stackexchange.com" || article.structuredBlockCount > 0;
-      if (hasUsefulContent && hasQueryData && !isChallengePage(article)) return article;
+      const needsInteraction = articlePageNeedsInteraction({
+        url: article?.finalUrl || url.href,
+        title: article?.title,
+        text: article?.blocks?.join(" ")
+      });
+      if (hasUsefulContent && hasQueryData && !needsInteraction) return article;
     } catch (error) {
       lastError = error;
     }
@@ -249,11 +257,6 @@ async function extractArticleFromTab(tabId) {
     func: extractRenderedDocument
   });
   return results?.[0]?.result;
-}
-
-function isChallengePage(article) {
-  const text = `${article.title || ""} ${(article.blocks || []).join(" ")}`;
-  return /just a moment|checking your browser|enable javascript and cookies|performing security verification/i.test(text);
 }
 
 function markTranslatablePageText() {
