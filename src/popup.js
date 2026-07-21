@@ -91,7 +91,11 @@ function normalizeUiScale(value) {
 }
 
 function applyUiScale() {
-  document.documentElement.style.setProperty("--ui-scale", String(uiScale));
+  const rootStyle = document.documentElement.style;
+  const inversePercentage = `${100 / uiScale}%`;
+  rootStyle.setProperty("--ui-scale", String(uiScale));
+  rootStyle.setProperty("--ui-viewport-height", `${100 / uiScale}vh`);
+  rootStyle.setProperty("--ui-viewport-width", inversePercentage);
 }
 
 function updateHeaderVisibility() {
