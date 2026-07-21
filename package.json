@@ -6,6 +6,7 @@
   "scripts": {
     "test": "node --test",
     "check": "node scripts/check-extension.mjs",
-    "build": "npm run check"
+    "build": "npm run check",
+    "pack": "npm run check && rm -f hncn-extension.zip && zip -rq hncn-extension.zip manifest.json src assets -x '*.DS_Store' && echo 'Packed hncn-extension.zip'"
   }
 }

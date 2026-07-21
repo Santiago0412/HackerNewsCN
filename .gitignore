@@ -1,0 +1,7 @@
+# 打包产物
+hncn-extension.zip
+*.zip
+
+# 依赖与系统文件
+node_modules/
+.DS_Store
