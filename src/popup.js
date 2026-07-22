@@ -4,6 +4,8 @@ const API = "https://hacker-news.firebaseio.com/v0";
 const PAGE_SIZE = 20;
 const COMMENT_LIMIT = 10;
 const TRANSLATION_CONCURRENCY = 3;
+const ARTICLE_QUICK_QUESTIONS = ["用一句话总结这篇文章", "解释文中的关键术语", "这对普通读者意味着什么"];
+const DISCUSSION_QUICK_QUESTIONS = ["总结大家的主要观点", "有哪些不同意见", "最有价值的一条评论是什么"];
 const DEFAULT_UI_SCALE = 1.1;
 const MIN_UI_SCALE = 0.9;
 const MAX_UI_SCALE = 1.5;
@@ -256,6 +258,7 @@ async function openDiscussion(story) {
   $("discussion").hidden = false;
   $("feeds").hidden = true;
   $("discussionStory").replaceChildren();
+  $("discussion").querySelector(".ask-panel")?.remove();
   const title = document.createElement("h1");
   title.textContent = document.querySelector(`[data-story-id="${story.id}"]`)?.textContent || story.title;
   $("discussionStory").append(title);
@@ -289,6 +292,7 @@ async function openDiscussion(story) {
       if (!comments.length) $("comments").textContent = "暂时没有讨论。";
       else comments.forEach((comment, index) => renderComment(comment, translations[index + commentOffset], htmlToText(comment.text || "")));
     }
+    mountAskPanel($("discussion"), () => [story.title, storyText, ...comments.map((comment) => `${comment.by || "匿名"}: ${htmlToText(comment.text || "")}`)].filter(Boolean).join("\n\n"), DISCUSSION_QUICK_QUESTIONS);
   } catch (error) {
     setNotice(`讨论加载失败：${error.message}`, "error");
   } finally {
@@ -312,6 +316,7 @@ async function openArticle(story) {
   $("articleReader").hidden = false;
   $("feeds").hidden = true;
   $("articleContent").replaceChildren();
+  $("articleReader").querySelector(".ask-panel")?.remove();
   setLoading(true, "正在抓取文章正文…");
   setNotice("");
   try {
@@ -340,6 +345,7 @@ async function openArticle(story) {
       renderArticleBody(article.blocks, []);
       setNotice("尚未配置 API Key，正文已在侧边栏显示，但没有翻译。", "setup");
     }
+    mountAskPanel($("articleReader"), () => `${article.title}\n\n${article.blocks.join("\n\n")}`, ARTICLE_QUICK_QUESTIONS);
   } catch (error) {
     renderArticleFailure(story, error.message);
   } finally {
@@ -577,6 +583,112 @@ function translate(texts) {
     else if (response?.ok) resolve(response.translations);
     else reject(new Error(response?.error || "翻译失败"));
   }));
+}
+
+function sendAsk(context, history) {
+  return new Promise((resolve, reject) => chrome.runtime.sendMessage({ type: "ASK", context, history }, (response) => {
+    if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+    else if (response?.ok) resolve(response.answer);
+    else reject(new Error(response?.error || "追问失败"));
+  }));
+}
+
+function mountAskPanel(host, getContext, quickQuestions) {
+  host.querySelector(".ask-panel")?.remove();
+  const panel = document.createElement("section");
+  panel.className = "ask-panel";
+  const head = document.createElement("div");
+  head.className = "ask-head";
+  head.textContent = "追问 AI";
+  panel.append(head);
+
+  if (!settings.apiKey) {
+    const setup = document.createElement("div");
+    setup.className = "ask-setup";
+    setup.textContent = "配置 API Key 后即可就这篇内容向 AI 提问。";
+    const openSettings = document.createElement("button");
+    openSettings.type = "button";
+    openSettings.textContent = "去设置";
+    openSettings.addEventListener("click", () => chrome.runtime.openOptionsPage());
+    setup.append(openSettings);
+    panel.append(setup);
+    host.append(panel);
+    return;
+  }
+
+  const thread = document.createElement("div");
+  thread.className = "ask-thread";
+  const quick = document.createElement("div");
+  quick.className = "ask-quick";
+  const form = document.createElement("form");
+  form.className = "ask-input";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.placeholder = "就这篇内容提个问题…";
+  input.autocomplete = "off";
+  const submit = document.createElement("button");
+  submit.type = "submit";
+  submit.textContent = "发送";
+  form.append(input, submit);
+
+  const conversation = [];
+  let busy = false;
+
+  const addBubble = (role, text) => {
+    const bubble = document.createElement("div");
+    bubble.className = `ask-msg ${role}`;
+    bubble.textContent = text;
+    thread.append(bubble);
+    thread.scrollTop = thread.scrollHeight;
+    return bubble;
+  };
+
+  const ask = async (question) => {
+    const q = String(question || "").trim();
+    if (!q || busy) return;
+    busy = true;
+    input.value = "";
+    quick.hidden = true;
+    input.disabled = true;
+    submit.disabled = true;
+    addBubble("user", q);
+    conversation.push({ role: "user", content: q });
+    const pending = addBubble("ai", "");
+    pending.classList.add("loading");
+    pending.innerHTML = "<i></i><i></i><i></i>";
+    try {
+      const answer = await sendAsk(getContext(), conversation);
+      conversation.push({ role: "assistant", content: answer });
+      pending.classList.remove("loading");
+      pending.textContent = answer;
+    } catch (error) {
+      conversation.pop();
+      pending.classList.remove("loading");
+      pending.classList.add("error");
+      pending.textContent = `回答失败：${error.message}`;
+    } finally {
+      busy = false;
+      input.disabled = false;
+      submit.disabled = false;
+      input.focus();
+      thread.scrollTop = thread.scrollHeight;
+    }
+  };
+
+  quickQuestions.forEach((question) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.textContent = question;
+    chip.addEventListener("click", () => ask(question));
+    quick.append(chip);
+  });
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    ask(input.value);
+  });
+
+  panel.append(thread, quick, form);
+  host.append(panel);
 }
 
 async function translateWithProgress(texts, label, maxItems) {

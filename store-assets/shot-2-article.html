@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1280px; height: 800px; overflow: hidden; }
+  body {
+    font-family: "PingFang SC", "Inter", system-ui, -apple-system, sans-serif;
+    background:
+      radial-gradient(1100px 700px at 88% -10%, #ffe0cc 0%, rgba(255,224,204,0) 55%),
+      radial-gradient(900px 600px at -10% 110%, #ffe9dc 0%, rgba(255,233,220,0) 50%),
+      #f7f4ee;
+    color: #1c1b19; display: flex; align-items: center; gap: 56px; padding: 0 72px;
+  }
+  .copy { width: 560px; flex: none; }
+  .eyebrow { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; }
+  .eyebrow .logo { width: 44px; height: 44px; border-radius: 11px; box-shadow: 0 6px 16px rgba(255,92,26,.32); }
+  .eyebrow b { font-size: 19px; font-weight: 800; letter-spacing: -.3px; }
+  .eyebrow span { color: #7c7269; font-size: 13px; }
+  h1 { font-size: 58px; line-height: 1.12; font-weight: 850; letter-spacing: -1.5px; }
+  h1 .hl { color: #ff5c1a; }
+  .sub { color: #5f5a53; font-size: 19px; line-height: 1.6; margin: 22px 0 34px; max-width: 500px; }
+  .feats { display: grid; gap: 15px; }
+  .feat { display: flex; align-items: center; gap: 13px; font-size: 16.5px; color: #33302c; font-weight: 550; }
+  .feat i { width: 26px; height: 26px; flex: none; border-radius: 50%; background: #fff1e8; color: #ff5c1a; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 900; box-shadow: inset 0 0 0 1px #ffd3bd; font-style: normal; }
+
+  .device { width: 416px; flex: none; border-radius: 26px; background: #fff; box-shadow: 0 40px 90px -20px rgba(60,40,25,.4), 0 12px 30px rgba(60,40,25,.14); overflow: hidden; border: 1px solid #ece7df; }
+  .ui { --accent:#ff5c1a; --accent-ink:#c9420b; --accent-soft:#fff1e8; --ink:#1c1b19; --muted:#6f6c66; --subtle:#a29e96; --line:#e8e4dc; padding: 16px 18px 4px; }
+  .back { color: var(--accent-ink); font-size: 12px; font-weight: 600; margin-bottom: 12px; }
+  .art h1 { font-family: ui-serif, Georgia, "Songti SC", serif; font-size: 25px; line-height: 1.34; font-weight: 750; letter-spacing: -.4px; }
+  .art .otitle { color: var(--muted); font-size: 11px; line-height: 1.45; margin: 8px 0 3px; }
+  .source { display: inline-block; color: var(--accent-ink); font-size: 11px; font-weight: 600; border-bottom: 1px solid #ffd3bd; padding-bottom: 3px; margin: 5px 0 4px; }
+  .art p { font-family: ui-serif, Georgia, "Songti SC", serif; font-size: 15px; line-height: 1.85; color: #292825; margin: 17px 0; }
+  .art .lead { font-size: 16px; }
+  .src-fold { border-left: 2px solid var(--line); color: var(--muted); font-size: 11px; padding: 2px 0 2px 10px; margin: -6px 0 14px; }
+</style>
+</head>
+<body>
+  <div class="copy">
+    <div class="eyebrow">
+      <svg class="logo" viewBox="0 0 128 128"><rect width="128" height="128" fill="#ff5c1a"/><path d="M34 30 64 65 94 30M64 65v36" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="square"/></svg>
+      <div><b>HN 中文</b> · <span>智能阅读助手</span></div>
+    </div>
+    <h1>外链文章<br><span class="hl">整篇读中文</span></h1>
+    <p class="sub">点开新闻链接，侧边栏自动抓取正文并分段翻译，杂志式排版，还能随时对照英文原文。</p>
+    <div class="feats">
+      <div class="feat"><i>✓</i> 自动提取正文，滤掉广告与导航</div>
+      <div class="feat"><i>✓</i> 杂志式中文阅读排版</div>
+      <div class="feat"><i>✓</i> 逐段保留可折叠英文原文</div>
+    </div>
+  </div>
+
+  <div class="device">
+    <div class="ui">
+      <div class="back">← 返回新闻列表</div>
+      <div class="art">
+        <h1>GPT-5 首次在真实编程任务上超过资深工程师</h1>
+        <div class="otitle">GPT-5 outperforms senior engineers on real-world coding tasks</div>
+        <a class="source">原文来源：openai.com ↗</a>
+        <p class="lead">在一项覆盖真实生产代码库的新基准测试中，GPT-5 首次在端到端任务上超过了资深工程师的平均水平——不只是写一个函数，而是从需求到上线的完整流程。</p>
+        <div class="src-fold">In a new benchmark spanning real production codebases…</div>
+        <p>评测团队用来自开源项目的真实工单，让模型独立完成问题定位、修改代码、编写测试并提交。GPT-5 的通过率达到 68%，而资深工程师对照组为 61%。</p>
+        <p>研究者同时提醒，这并不意味着可以取代工程师：在需要跨系统上下文与产品判断的任务上，模型仍明显落后。真正的价值，是把人从重复劳动中解放出来。</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

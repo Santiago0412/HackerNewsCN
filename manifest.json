@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Hacker News 中文助手",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "使用你自己的大模型 API 翻译 Hacker News，并按兴趣突出内容。",
   "icons": {
     "16": "assets/icon-16.png",

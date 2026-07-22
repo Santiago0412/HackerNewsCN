@@ -2,11 +2,17 @@ const SYSTEM_PROMPT = `你是专业的科技新闻翻译。将输入的英文内
 
 export const PROMPT_VERSION = "zh-cn-tech-v1";
 
-export async function translateBatch(texts, settings, fetchImpl = fetch) {
+const CHAT_SYSTEM_PROMPT = `你是嵌入在 Hacker News 中文阅读器里的助手。用户正在阅读下面这段内容，请始终用简体中文回答用户的问题：简洁、准确、口语化，必要时分点。优先基于所读内容作答；如果内容里没有相关信息，就明确说明，可以补充你已知的背景，但不要编造事实、数字或引用。`;
+
+export function assertApiKey(settings) {
   if (!settings.apiKey) throw new Error("请先在插件设置中填写 API Token");
   if (!/^[\x21-\x7E]+$/.test(settings.apiKey)) {
     throw new Error("API Key 包含中文、空格或全角符号，请重新复制服务商提供的原始 Key");
   }
+}
+
+export async function translateBatch(texts, settings, fetchImpl = fetch) {
+  assertApiKey(settings);
   if (!Array.isArray(texts) || texts.length === 0) return [];
   const request = buildRequest(texts, settings);
   const response = await fetchImpl(request.url, request.options);
@@ -103,4 +109,45 @@ function apiError(status, raw) {
   if (status === 401 || status === 403) return `Token 无效或无权访问（HTTP ${status}）`;
   if (status === 429) return "请求过于频繁或账户余额不足（HTTP 429）";
   return `模型接口请求失败（HTTP ${status}）：${String(message).slice(0, 240)}`;
+}
+
+export async function askQuestion(context, history, settings, fetchImpl = fetch) {
+  assertApiKey(settings);
+  if (!Array.isArray(history) || history.length === 0) throw new Error("请输入你的问题");
+  const request = buildChatRequest(context, history, settings);
+  const response = await fetchImpl(request.url, request.options);
+  const raw = await response.text();
+  if (!response.ok) throw new Error(apiError(response.status, raw));
+  let data;
+  try { data = JSON.parse(raw); } catch { throw new Error("模型接口返回了无效 JSON"); }
+  const content = extractContent(data, settings.provider);
+  if (typeof content !== "string" || !content.trim()) throw new Error("模型没有返回有效回答，请重试");
+  return content.trim();
+}
+
+export function buildChatRequest(context, history, settings) {
+  const provider = settings.provider;
+  const system = `${CHAT_SYSTEM_PROMPT}\n\n【正在阅读的内容】\n${String(context || "").slice(0, 12000)}`;
+  const turns = history.map((turn) => ({ role: turn.role, content: String(turn.content ?? "") }));
+  if (provider === "anthropic") {
+    return jsonRequest("https://api.anthropic.com/v1/messages", {
+      model: settings.model, max_tokens: 1024, system, messages: turns
+    }, { "x-api-key": settings.apiKey, "anthropic-version": "2023-06-01" });
+  }
+  if (provider === "gemini") {
+    const model = encodeURIComponent(settings.model);
+    return jsonRequest(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(settings.apiKey)}`, {
+      systemInstruction: { parts: [{ text: system }] },
+      contents: turns.map((turn) => ({ role: turn.role === "assistant" ? "model" : "user", parts: [{ text: turn.content }] })),
+      generationConfig: { temperature: 0.3 }
+    });
+  }
+  const endpoint = provider === "deepseek"
+    ? "https://api.deepseek.com/chat/completions"
+    : provider === "custom" ? settings.customEndpoint : "https://api.openai.com/v1/chat/completions";
+  if (!endpoint) throw new Error("请填写兼容接口地址");
+  return jsonRequest(endpoint, {
+    model: provider === "custom" ? settings.customModel : settings.model,
+    messages: [{ role: "system", content: system }, ...turns]
+  }, { Authorization: `Bearer ${settings.apiKey}` });
 }

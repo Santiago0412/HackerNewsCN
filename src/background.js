@@ -1,5 +1,5 @@
 import { cacheKey, TranslationCache } from "./lib/cache.js";
-import { translateBatchResilient, PROMPT_VERSION } from "./lib/providers.js";
+import { translateBatchResilient, askQuestion, PROMPT_VERSION } from "./lib/providers.js";
 import { DEFAULT_SETTINGS, normalizeSettings } from "./lib/settings.js";
 import { articlePageNeedsInteraction, validateArticleUrl } from "./lib/article.js";
 
@@ -17,6 +17,11 @@ chrome.runtime.onInstalled.addListener(async () => {
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "TRANSLATE") {
     translateWithCache(message.texts).then((translations) => sendResponse({ ok: true, translations }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+  if (message?.type === "ASK") {
+    askViaModel(message.context, message.history).then((answer) => sendResponse({ ok: true, answer }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
@@ -84,6 +89,12 @@ async function translateWithCache(inputTexts) {
   }
   cache.prune(settings.maxCacheEntries).catch(() => {});
   return output;
+}
+
+async function askViaModel(context, history) {
+  const { settings: raw } = await chrome.storage.local.get("settings");
+  const settings = normalizeSettings(raw);
+  return askQuestion(context, history, settings);
 }
 
 async function performBatches(items, settings) {

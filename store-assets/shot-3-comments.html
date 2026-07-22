@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1280px; height: 800px; overflow: hidden; }
+  body {
+    font-family: "PingFang SC", "Inter", system-ui, -apple-system, sans-serif;
+    background:
+      radial-gradient(1100px 700px at 88% -10%, #ffe0cc 0%, rgba(255,224,204,0) 55%),
+      radial-gradient(900px 600px at -10% 110%, #ffe9dc 0%, rgba(255,233,220,0) 50%),
+      #f7f4ee;
+    color: #1c1b19; display: flex; align-items: center; gap: 56px; padding: 0 72px;
+  }
+  .copy { width: 560px; flex: none; }
+  .eyebrow { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; }
+  .eyebrow .logo { width: 44px; height: 44px; border-radius: 11px; box-shadow: 0 6px 16px rgba(255,92,26,.32); }
+  .eyebrow b { font-size: 19px; font-weight: 800; letter-spacing: -.3px; }
+  .eyebrow span { color: #7c7269; font-size: 13px; }
+  h1 { font-size: 58px; line-height: 1.12; font-weight: 850; letter-spacing: -1.5px; }
+  h1 .hl { color: #ff5c1a; }
+  .sub { color: #5f5a53; font-size: 19px; line-height: 1.6; margin: 22px 0 34px; max-width: 500px; }
+  .feats { display: grid; gap: 15px; }
+  .feat { display: flex; align-items: center; gap: 13px; font-size: 16.5px; color: #33302c; font-weight: 550; }
+  .feat i { width: 26px; height: 26px; flex: none; border-radius: 50%; background: #fff1e8; color: #ff5c1a; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 900; box-shadow: inset 0 0 0 1px #ffd3bd; font-style: normal; }
+
+  .device { width: 416px; flex: none; border-radius: 26px; background: #fff; box-shadow: 0 40px 90px -20px rgba(60,40,25,.4), 0 12px 30px rgba(60,40,25,.14); overflow: hidden; border: 1px solid #ece7df; }
+  .ui { --accent:#ff5c1a; --accent-ink:#c9420b; --accent-soft:#fff1e8; --ink:#1c1b19; --muted:#6f6c66; --subtle:#a29e96; --line:#e8e4dc; padding: 16px 18px 8px; }
+  .back { color: var(--accent-ink); font-size: 12px; font-weight: 600; margin-bottom: 12px; }
+  .post { background: var(--accent-soft); border: 1px solid #ffd3bd; border-left: 4px solid var(--accent); border-radius: 11px; padding: 14px; }
+  .post .tag { color: var(--accent-ink); font-size: 9px; font-weight: 750; letter-spacing: .14em; margin-bottom: 7px; }
+  .post h2 { font-size: 15.5px; font-weight: 700; line-height: 1.4; }
+  .post p { font-size: 12.5px; line-height: 1.7; margin-top: 10px; color: #3a352f; }
+  .h { color: var(--subtle); font-size: 10px; font-weight: 700; letter-spacing: .13em; margin: 20px 0 10px; }
+  .cmt { display: grid; grid-template-columns: 28px 1fr; gap: 10px; background: #fff; border: 1px solid var(--line); border-radius: 11px; box-shadow: 0 2px 8px rgba(60,40,25,.05); padding: 12px; margin-bottom: 9px; }
+  .av { width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-ink); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 750; }
+  .cmeta { color: var(--muted); font-size: 9.5px; font-weight: 650; }
+  .cbody { font-size: 12px; line-height: 1.65; color: var(--ink); margin-top: 6px; }
+</style>
+</head>
+<body>
+  <div class="copy">
+    <div class="eyebrow">
+      <svg class="logo" viewBox="0 0 128 128"><rect width="128" height="128" fill="#ff5c1a"/><path d="M34 30 64 65 94 30M64 65v36" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="square"/></svg>
+      <div><b>HN 中文</b> · <span>智能阅读助手</span></div>
+    </div>
+    <h1>热门讨论<br><span class="hl">逐条翻译</span></h1>
+    <p class="sub">在侧边栏查看并翻译热门评论，带作者头像的讨论卡片，随时展开英文原文。</p>
+    <div class="feats">
+      <div class="feat"><i>✓</i> 原帖与评论一起翻译</div>
+      <div class="feat"><i>✓</i> 作者头像 · 讨论卡片清晰易读</div>
+      <div class="feat"><i>✓</i> 按需翻译，不浪费额度</div>
+    </div>
+  </div>
+
+  <div class="device">
+    <div class="ui">
+      <div class="back">← 返回新闻列表</div>
+      <div class="post">
+        <div class="tag">原帖</div>
+        <h2>Ask HN：你现在真正每天在用的 AI 工具是什么？</h2>
+        <p>各种模型层出不穷，但真正留在你日常工作流里的有哪些？想听听大家长期在用、而不是试一次就删掉的工具。</p>
+      </div>
+      <div class="h">热门讨论</div>
+      <div class="cmt"><div class="av">P</div><div><div class="cmeta">patrick · 2 小时前</div><div class="cbody">代码补全早就离不开了。更意外的是，读英文资料和翻译现在几乎全交给模型，比查词典快太多。</div></div></div>
+      <div class="cmt"><div class="av">M</div><div><div class="cmeta">maria · 3 小时前</div><div class="cbody">我们团队用它做每天代码评审的初筛。它抓不出所有问题，但能挡掉大量低级错误，让人专注在架构上。</div></div></div>
+      <div class="cmt"><div class="av">K</div><div><div class="cmeta">kenji · 4 小时前</div><div class="cbody">本地跑一个小模型处理日志和摘要，数据不出内网，成本几乎为零。这是今年对我改变最大的一件事。</div></div></div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1400px; height: 560px; overflow: hidden; }
+  body {
+    font-family: "PingFang SC", "Inter", system-ui, -apple-system, sans-serif;
+    background:
+      radial-gradient(900px 560px at 92% -20%, #ffe0cc 0%, rgba(255,224,204,0) 55%),
+      radial-gradient(700px 500px at 2% 120%, #ffe9dc 0%, rgba(255,233,220,0) 50%),
+      #f7f4ee;
+    color: #1c1b19; display: flex; align-items: center; overflow: hidden;
+  }
+  .copy { width: 780px; flex: none; padding: 0 0 0 96px; }
+  .eyebrow { display: flex; align-items: center; gap: 13px; margin-bottom: 24px; }
+  .eyebrow .logo { width: 48px; height: 48px; border-radius: 12px; box-shadow: 0 8px 20px rgba(255,92,26,.34); }
+  .eyebrow b { font-size: 21px; font-weight: 800; letter-spacing: -.3px; }
+  .eyebrow span { color: #7c7269; font-size: 14px; }
+  h1 { font-size: 68px; line-height: 1.08; font-weight: 850; letter-spacing: -2px; }
+  h1 .hl { color: #ff5c1a; }
+  .sub { color: #5f5a53; font-size: 21px; line-height: 1.55; margin: 24px 0 30px; max-width: 620px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 10px; }
+  .tag { background: #fff; border: 1px solid #ffd3bd; color: #c9420b; font-size: 14px; font-weight: 650; padding: 9px 15px; border-radius: 999px; box-shadow: 0 3px 10px rgba(60,40,25,.05); }
+
+  .stage { position: relative; flex: 1; height: 100%; }
+  .device { position: absolute; top: 66px; left: 20px; width: 452px; border-radius: 28px; background: #fff; box-shadow: 0 44px 100px -24px rgba(60,40,25,.42), 0 14px 34px rgba(60,40,25,.14); overflow: hidden; border: 1px solid #ece7df; }
+  .ui { --accent:#ff5c1a; --accent-ink:#c9420b; --accent-soft:#fff1e8; --ink:#1c1b19; --muted:#6f6c66; --subtle:#a29e96; --line:#e8e4dc; }
+  .ui header { display: flex; align-items: center; justify-content: space-between; padding: 15px 17px; border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: 11px; flex: 1; min-width: 0; }
+  .brand svg { width: 40px; height: 40px; border-radius: 9px; flex: none; }
+  .brand strong { display: block; font-size: 17px; font-weight: 750; white-space: nowrap; }
+  .brand small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; white-space: nowrap; }
+  .actions { display: flex; align-items: center; gap: 8px; flex: none; }
+  .pill { display: flex; align-items: center; gap: 5px; background: var(--accent-soft); border: 1px solid #ffd3bd; border-radius: 999px; color: var(--accent-ink); font-size: 11px; font-weight: 700; padding: 8px 11px; white-space: nowrap; }
+  .pill em { font-style: normal; font-size: 9px; letter-spacing: -.08em; }
+  .gear { width: 38px; height: 38px; border-radius: 9px; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+  .gear svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  nav { display: flex; padding: 0 11px; border-bottom: 1px solid var(--line); }
+  nav a { flex: 1; text-align: center; font-size: 12.5px; color: var(--muted); padding: 14px 4px 12px; border-bottom: 2px solid transparent; }
+  nav a.on { color: var(--accent-ink); font-weight: 700; border-color: var(--accent); }
+  ol { list-style: none; padding: 9px 11px 16px; }
+  li { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: baseline; padding: 12px 8px 11px 6px; border-radius: 12px; }
+  li.hot { background: #fff; box-shadow: 0 2px 8px rgba(60,40,25,.06); }
+  .rank { text-align: right; font: 700 12px/1.5 ui-monospace, Menlo, monospace; color: var(--subtle); }
+  li:nth-child(-n+3) .rank { color: var(--accent); }
+  .title { display: block; font-size: 15.5px; font-weight: 600; line-height: 1.42; letter-spacing: -.1px; }
+  .orig { display: block; font-size: 11px; color: var(--subtle); line-height: 1.4; margin-top: 4px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 10.5px; color: var(--subtle); margin-top: 8px; }
+  .meta i { font-style: normal; }
+  .meta i:not(:first-child)::before { content: "·"; margin-right: 8px; opacity: .55; }
+  .disc { margin-left: auto; color: var(--accent-ink); font-weight: 650; }
+</style>
+</head>
+<body>
+  <div class="copy">
+    <div class="eyebrow">
+      <svg class="logo" viewBox="0 0 128 128"><rect width="128" height="128" fill="#ff5c1a"/><path d="M34 30 64 65 94 30M64 65v36" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="square"/></svg>
+      <div><b>HN 中文</b> · <span>智能阅读助手</span></div>
+    </div>
+    <h1>把 <span class="hl">Hacker News</span><br>读成中文</h1>
+    <p class="sub">用你自己的大模型 API，在浏览器侧边栏翻译标题、评论与正文。数据只存本地，隐私优先。</p>
+    <div class="tags">
+      <span class="tag">侧边栏阅读</span>
+      <span class="tag">标题 · 评论 · 正文翻译</span>
+      <span class="tag">译当前页</span>
+      <span class="tag">亮 / 暗主题</span>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="device">
+      <div class="ui">
+        <header>
+          <div class="brand">
+            <svg viewBox="0 0 128 128"><rect width="128" height="128" fill="#ff5c1a"/><path d="M34 30 64 65 94 30M64 65v36" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="square"/></svg>
+            <div><strong>HN 中文</strong><small>智能阅读助手</small></div>
+          </div>
+          <div class="actions">
+            <div class="pill"><em>文A</em> 译当前页</div>
+            <div class="gear"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.3h-4v-.3a1.7 1.7 0 0 0-2.9-1.2l-.1.1L4.2 17l.1-.1A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.2-2.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 2.9 1.2l.1-.1L19.8 7l-.1.1A1.7 1.7 0 0 0 21 10h.3v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg></div>
+          </div>
+        </header>
+        <nav><a>关注</a><a class="on">热门</a><a>最新</a><a>最佳</a><a>问答</a><a>作品</a></nav>
+        <ol>
+          <li class="hot"><span class="rank">1.</span><div><span class="title">GPT-5 首次在真实编程任务上超过资深工程师</span><span class="orig">GPT-5 outperforms senior engineers on real-world coding tasks</span><div class="meta"><i>512 分</i><i>sama</i><i>2 小时前</i><i>openai.com</i><span class="disc">312 条讨论</span></div></div></li>
+          <li><span class="rank">2.</span><div><span class="title">英伟达市值突破 5 万亿美元，登顶全球</span><span class="orig">Nvidia hits $5T, becomes the world's most valuable company</span><div class="meta"><i>438 分</i><i>jensen</i><i>4 小时前</i><i>bloomberg.com</i><span class="disc">205 条讨论</span></div></div></li>
+          <li><span class="rank">3.</span><div><span class="title">我们如何用单块 GPU 训练出 70 亿参数模型</span><span class="orig">How we trained a 7B-parameter model on a single GPU</span><div class="meta"><i>356 分</i><i>karpathy</i><i>5 小时前</i><i>arxiv.org</i><span class="disc">178 条讨论</span></div></div></li>
+          <li><span class="rank">4.</span><div><span class="title">开源本地大模型现在能在手机上流畅运行</span><span class="orig">Open local LLMs now run smoothly on your phone</span><div class="meta"><i>291 分</i><i>ggerganov</i><i>7 小时前</i><i>ollama.ai</i><span class="disc">143 条讨论</span></div></div></li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

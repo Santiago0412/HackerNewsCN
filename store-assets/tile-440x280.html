@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 440px; height: 280px; overflow: hidden; }
+  body {
+    font-family: "PingFang SC", "Inter", system-ui, -apple-system, sans-serif;
+    background: linear-gradient(140deg, #ff6a2c 0%, #ff5c1a 48%, #e8480c 100%);
+    color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; position: relative;
+  }
+  body::after { content: ""; position: absolute; inset: 0; background: radial-gradient(360px 220px at 82% -20%, rgba(255,255,255,.22), rgba(255,255,255,0) 60%); }
+  .logo { width: 74px; height: 74px; border-radius: 18px; background: rgba(255,255,255,.14); display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 26px rgba(120,40,0,.35), inset 0 0 0 1px rgba(255,255,255,.28); margin-bottom: 20px; z-index: 1; }
+  .logo svg { width: 46px; height: 46px; }
+  .name { font-size: 30px; font-weight: 850; letter-spacing: -.5px; z-index: 1; }
+  .name small { font-weight: 500; opacity: .9; }
+  .slogan { font-size: 15px; font-weight: 600; margin-top: 10px; color: rgba(255,255,255,.95); z-index: 1; }
+</style>
+</head>
+<body>
+  <div class="logo">
+    <svg viewBox="0 0 128 128"><path d="M34 30 64 65 94 30M64 65v40" fill="none" stroke="#fff" stroke-width="13" stroke-linecap="square"/></svg>
+  </div>
+  <div class="name">HN 中文</div>
+  <div class="slogan">把 Hacker News 读成中文</div>
+</body>
+</html>

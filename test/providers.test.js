@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildRequest, parseTranslations, translateBatch, translateBatchResilient } from "../src/lib/providers.js";
+import { buildRequest, buildChatRequest, askQuestion, parseTranslations, translateBatch, translateBatchResilient } from "../src/lib/providers.js";
 
 test("builds provider-specific request formats", () => {
   const common = { apiKey: "secret", model: "example" };
@@ -60,4 +60,47 @@ test("automatically splits a batch when the model returns the wrong count", asyn
   const result = await translateBatchResilient(["one", "two", "three"], { provider: "openai", apiKey: "secret", model: "example" }, fetchImpl);
   assert.deepEqual(result, ["译：one", "译：two", "译：three"]);
   assert.equal(calls, 5);
+});
+
+test("builds chat request payloads per provider and injects reading context", () => {
+  const history = [{ role: "user", content: "这篇讲了什么？" }, { role: "assistant", content: "讲了 X。" }, { role: "user", content: "再详细点" }];
+  const common = { apiKey: "secret", model: "example" };
+
+  const openai = buildChatRequest("READING_CONTEXT", history, { ...common, provider: "openai" });
+  const openaiBody = JSON.parse(openai.options.body);
+  assert.equal(openai.url, "https://api.openai.com/v1/chat/completions");
+  assert.equal(openaiBody.messages[0].role, "system");
+  assert.match(openaiBody.messages[0].content, /READING_CONTEXT/);
+  assert.equal(openaiBody.messages.length, 4);
+  assert.equal(openaiBody.messages.at(-1).content, "再详细点");
+
+  const anthropic = buildChatRequest("READING_CONTEXT", history, { ...common, provider: "anthropic" });
+  const anthropicBody = JSON.parse(anthropic.options.body);
+  assert.match(anthropicBody.system, /READING_CONTEXT/);
+  assert.equal(anthropicBody.max_tokens, 1024);
+  assert.equal(anthropicBody.messages.length, 3);
+  assert.equal(anthropicBody.messages[0].role, "user");
+
+  const gemini = buildChatRequest("READING_CONTEXT", history, { ...common, provider: "gemini" });
+  const geminiBody = JSON.parse(gemini.options.body);
+  assert.match(geminiBody.systemInstruction.parts[0].text, /READING_CONTEXT/);
+  assert.equal(geminiBody.contents[1].role, "model");
+  assert.equal(geminiBody.generationConfig.responseMimeType, undefined);
+});
+
+test("askQuestion returns the model answer and surfaces API errors", async () => {
+  const settings = { provider: "openai", apiKey: "secret", model: "example" };
+  const history = [{ role: "user", content: "总结一下" }];
+  const okFetch = async () => new Response(JSON.stringify({ choices: [{ message: { content: "这是回答。" } }] }), { status: 200 });
+  assert.equal(await askQuestion("正文", history, settings, okFetch), "这是回答。");
+  const errFetch = async () => new Response(JSON.stringify({ error: { message: "nope" } }), { status: 429 });
+  await assert.rejects(() => askQuestion("正文", history, settings, errFetch), /频繁|429/);
+});
+
+test("askQuestion rejects empty history and non-ASCII keys before fetch", async () => {
+  let called = false;
+  const fetchImpl = async () => { called = true; return new Response(); };
+  await assert.rejects(() => askQuestion("正文", [], { provider: "openai", apiKey: "secret", model: "x" }, fetchImpl), /请输入你的问题/);
+  await assert.rejects(() => askQuestion("正文", [{ role: "user", content: "hi" }], { provider: "openai", apiKey: "中文错误", model: "x" }, fetchImpl), /中文、空格或全角符号/);
+  assert.equal(called, false);
 });

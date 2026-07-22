@@ -56,6 +56,7 @@
 
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, "PingFang SC", sans-serif;
   color: var(--text);
+  background: var(--bg);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -105,8 +106,9 @@ body {
   margin: 0;
   min-width: 300px;
   overscroll-behavior: none;
+  transform: scale(var(--ui-scale));
+  transform-origin: top left;
   width: var(--ui-viewport-width);
-  zoom: var(--ui-scale);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -294,6 +296,34 @@ footer button:hover { background: var(--accent-soft); }
 .reader-error { background: var(--danger-bg); border-radius: var(--r-sm); color: var(--danger); font-family: inherit !important; padding: 12px !important; }
 #articleContent details { border-left: 2px solid var(--border); color: var(--text-muted); font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 9px; margin: -11px 0 15px; padding-left: 10px; }
 #articleContent details p { font-size: 11px; line-height: 1.55; }
+
+/* —— 追问 AI —— */
+.ask-panel { border-top: 1px solid var(--border); margin-top: 22px; padding-top: 16px; }
+.ask-head { color: var(--text-subtle); font-size: 10px; font-weight: 700; letter-spacing: .13em; margin-bottom: 12px; text-transform: uppercase; }
+.ask-setup { align-items: center; background: var(--accent-soft); border: 1px solid var(--accent-line); border-radius: var(--r-md); color: var(--accent-ink); display: flex; flex-wrap: wrap; font-size: 11px; gap: 8px; justify-content: space-between; line-height: 1.5; padding: 11px 12px; }
+.ask-setup button { background: var(--accent); border: 0; border-radius: var(--r-sm); color: #fff; font-size: 11px; font-weight: 650; padding: 6px 12px; }
+.ask-thread { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; max-height: 300px; overflow-y: auto; }
+.ask-thread:empty { display: none; }
+.ask-msg { border-radius: 13px; font-size: 12.5px; line-height: 1.62; max-width: 88%; padding: 9px 12px; white-space: pre-wrap; word-break: break-word; }
+.ask-msg.user { align-self: flex-end; background: var(--accent); border-bottom-right-radius: 4px; color: #fff; }
+.ask-msg.ai { align-self: flex-start; background: var(--surface-2); border: 1px solid var(--border-soft); border-bottom-left-radius: 4px; color: var(--text); }
+.ask-msg.ai.error { background: var(--danger-bg); border-color: transparent; color: var(--danger); }
+.ask-msg.loading { align-items: center; display: flex; gap: 5px; }
+.ask-msg.loading i { animation: ask-blink 1.2s infinite both; background: var(--text-subtle); border-radius: 50%; height: 6px; width: 6px; }
+.ask-msg.loading i:nth-child(2) { animation-delay: .18s; }
+.ask-msg.loading i:nth-child(3) { animation-delay: .36s; }
+@keyframes ask-blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+.ask-quick { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 11px; }
+.ask-quick[hidden] { display: none; }
+.ask-quick button { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-pill); color: var(--text-muted); font-size: 11px; padding: 7px 12px; transition: background .14s var(--ease), border-color .14s var(--ease), color .14s var(--ease); }
+.ask-quick button:hover { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-ink); }
+.ask-input { display: flex; gap: 8px; }
+.ask-input input { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); color: var(--text); flex: 1; font-size: 12.5px; min-width: 0; outline: 0; padding: 10px 12px; transition: border-color .16s var(--ease), box-shadow .16s var(--ease); }
+.ask-input input:focus { border-color: var(--accent); box-shadow: var(--ring); }
+.ask-input input:disabled { opacity: .6; }
+.ask-input button { background: var(--accent); border: 0; border-radius: var(--r-md); color: #fff; flex: none; font-size: 12.5px; font-weight: 650; padding: 10px 16px; transition: background .16s var(--ease); }
+.ask-input button:hover { background: var(--accent-hover); }
+.ask-input button:disabled { cursor: wait; opacity: .6; }
 
 /* —— 响应式与动效偏好 —— */
 @media (max-width: 350px) {
