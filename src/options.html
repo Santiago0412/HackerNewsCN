@@ -3,24 +3,30 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Hacker News 中文助手设置</title>
+  <title data-i18n="optionsTitle">Hacker News AI Reading Assistant settings</title>
   <link rel="stylesheet" href="options.css">
 </head>
 <body>
   <main>
-    <header><img class="logo" src="../assets/logo.svg" alt=""><div><h1>HN 中文</h1><p>两步完成设置，侧边栏直接阅读。</p></div></header>
+    <header><img class="logo" src="../assets/logo.svg" alt=""><div><h1 data-i18n="optionsName">HN Reader</h1><p data-i18n="optionsSubtitle">Choose a language and model.</p></div></header>
     <section class="setup">
-      <div class="step"><span>1</span><div><label>选择翻译模型<select id="modelChoice"></select></label></div></div>
+      <div class="step"><span>1</span><div class="field-stack"><label><i data-i18n="translateTo">Translate into</i><select id="targetLanguage"></select></label><label id="customLanguageField" hidden><i data-i18n="customLanguage">Target language name</i><input id="customTargetLanguage" type="text" maxlength="80" data-i18n-placeholder="customLanguagePlaceholder"></label></div></div>
+      <div class="step"><span>2</span><div><label><i data-i18n="chooseModel">Choose model service</i><select id="modelChoice"></select></label></div></div>
+      <div id="customProviderFields" class="custom-fields" hidden>
+        <label><i data-i18n="apiUrl">API endpoint</i><input id="customEndpoint" type="url" inputmode="url" autocomplete="url" data-i18n-placeholder="endpointPlaceholder"></label>
+        <label><i data-i18n="modelName">Model name</i><input id="customModel" type="text" autocomplete="off" data-i18n-placeholder="modelPlaceholder"></label>
+        <p data-i18n="customEndpointPermission">Enter the complete OpenAI-compatible endpoint.</p>
+      </div>
       <div id="keyGuide" class="guide"></div>
-      <div class="step"><span>2</span><div><label>粘贴 API Key<input id="apiKey" type="password" autocomplete="off" placeholder="在这里粘贴刚刚创建的 Key"></label><button type="button" id="toggleToken" class="secondary">显示 / 隐藏</button></div></div>
-      <p class="privacy">🔒 Key 只保存在这台浏览器中，只会发送给你选择的模型服务商。</p>
+      <div class="step"><span>3</span><div><label><i data-i18n="apiKey">Paste API key</i><input id="apiKey" type="password" autocomplete="off" data-i18n-placeholder="apiKeyPlaceholder"></label><button type="button" id="toggleToken" class="secondary" data-i18n="showHide">Show / hide</button></div></div>
+      <p class="privacy" data-i18n="apiPrivacy">🔒 The endpoint and key stay in this browser.</p>
     </section>
     <section>
-      <h2>喜欢的话题 <small>可选</small></h2>
-      <p class="hint">选择后会出现在插件阅读器的“关注”Tab；其他 Tab 保持 HN 官方内容与排序。</p>
+      <h2><i data-i18n="favoriteTopics">Favorite topics</i> <small data-i18n="optional">Optional</small></h2>
+      <p class="hint" data-i18n="favoriteHint">Selected topics appear in Following.</p>
       <div id="topics" class="topics"></div>
     </section>
-    <footer><button id="save" type="button">保存并开始使用</button><span id="status" role="status"></span></footer>
+    <footer><button id="save" type="button" data-i18n="saveSettings">Save and start</button><span id="status" role="status"></span></footer>
   </main>
   <script type="module" src="options.js"></script>
 </body>

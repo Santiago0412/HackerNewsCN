@@ -17,6 +17,29 @@ test("builds provider-specific request formats", () => {
   assert.equal(JSON.parse(custom.options.body).model, "local");
 });
 
+test("uses the selected target language for translation and chat", () => {
+  const settings = { provider: "openai", apiKey: "secret", model: "example", targetLanguage: "ja" };
+  const translation = JSON.parse(buildRequest(["Hello"], settings).options.body);
+  assert.match(translation.messages[0].content, /Japanese/);
+  assert.doesNotMatch(translation.messages[0].content, /Simplified Chinese/);
+  const chat = JSON.parse(buildChatRequest("READING_CONTEXT", [{ role: "user", content: "summary" }], settings).options.body);
+  assert.match(chat.messages[0].content, /Always answer in Japanese/);
+  assert.match(chat.messages[0].content, /READING_CONTEXT/);
+});
+
+test("uses a custom language name and validates custom API URLs", () => {
+  const settings = {
+    provider: "custom", apiKey: "secret", customModel: "local-model",
+    customEndpoint: "https://llm.example/v1/chat/completions", targetLanguage: "custom", customTargetLanguage: "Italiano"
+  };
+  const request = buildRequest(["Hello"], settings);
+  assert.equal(request.url, "https://llm.example/v1/chat/completions");
+  const body = JSON.parse(request.options.body);
+  assert.equal(body.model, "local-model");
+  assert.match(body.messages[0].content, /Italiano/);
+  assert.throws(() => buildRequest(["Hello"], { ...settings, customEndpoint: "file:///tmp/model" }), /https:\/\/|http:\/\//);
+});
+
 test("parses plain and fenced JSON without accepting malformed counts", () => {
   assert.deepEqual(parseTranslations('["你好","世界"]', 2), ["你好", "世界"]);
   assert.deepEqual(parseTranslations('```json\n["你好"]\n```', 1), ["你好"]);
@@ -86,6 +109,15 @@ test("builds chat request payloads per provider and injects reading context", ()
   assert.match(geminiBody.systemInstruction.parts[0].text, /READING_CONTEXT/);
   assert.equal(geminiBody.contents[1].role, "model");
   assert.equal(geminiBody.generationConfig.responseMimeType, undefined);
+});
+
+test("bounds chat history so the floating assistant cannot grow requests forever", () => {
+  const history = Array.from({ length: 20 }, (_, index) => ({ role: index % 2 ? "assistant" : "user", content: `turn-${index}` }));
+  const request = buildChatRequest("context", history, { provider: "openai", apiKey: "secret", model: "example" });
+  const body = JSON.parse(request.options.body);
+  assert.equal(body.messages.length, 13);
+  assert.equal(body.messages[1].content, "turn-8");
+  assert.equal(body.messages.at(-1).content, "turn-19");
 });
 
 test("askQuestion returns the model answer and surfaces API errors", async () => {

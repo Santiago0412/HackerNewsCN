@@ -1,0 +1,5 @@
+{
+  "extensionName": { "message": "ИИ-помощник для чтения Hacker News" },
+  "extensionDescription": { "message": "Переводите, читайте, сохраняйте, комментируйте и систематизируйте Hacker News на выбранном языке через свой API ИИ." },
+  "actionTitle": { "message": "Открыть ИИ-ридер Hacker News" }
+}

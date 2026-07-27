@@ -1,0 +1,5 @@
+{
+  "extensionName": { "message": "Hacker News AI 閱讀助手" },
+  "extensionDescription": { "message": "使用你自己的 AI API，以所選語言翻譯、閱讀、收藏、記錄並整理 Hacker News。" },
+  "actionTitle": { "message": "開啟 Hacker News AI 閱讀器" }
+}

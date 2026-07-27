@@ -1,12 +1,12 @@
 {
   "name": "hacker-news-cn",
-  "version": "0.1.1",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test",
     "check": "node scripts/check-extension.mjs",
     "build": "npm run check",
-    "pack": "npm run check && rm -f hncn-extension.zip && zip -rq hncn-extension.zip manifest.json src assets -x '*.DS_Store' && echo 'Packed hncn-extension.zip'"
+    "pack": "npm run check && rm -f hncn-extension.zip && zip -rq hncn-extension.zip manifest.json src assets _locales -x '*.DS_Store' && echo 'Packed hncn-extension.zip'"
   }
 }

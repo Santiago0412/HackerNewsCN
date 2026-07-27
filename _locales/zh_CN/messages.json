@@ -1,0 +1,5 @@
+{
+  "extensionName": { "message": "Hacker News AI 阅读助手" },
+  "extensionDescription": { "message": "使用你自己的大模型 API，将 Hacker News 翻译成所选语言并阅读、收藏、记录与整理。" },
+  "actionTitle": { "message": "打开 Hacker News AI 阅读侧边栏" }
+}

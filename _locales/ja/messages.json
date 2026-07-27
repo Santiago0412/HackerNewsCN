@@ -1,0 +1,5 @@
+{
+  "extensionName": { "message": "Hacker News AI リーディングアシスタント" },
+  "extensionDescription": { "message": "自分の AI API を使い、選択した言語で Hacker News を翻訳、閲覧、保存、記録、整理できます。" },
+  "actionTitle": { "message": "Hacker News AI リーダーを開く" }
+}

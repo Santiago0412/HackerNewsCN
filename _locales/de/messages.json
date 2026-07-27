@@ -1,0 +1,5 @@
+{
+  "extensionName": { "message": "Hacker News KI-Leseassistent" },
+  "extensionDescription": { "message": "Hacker News mit der eigenen KI-API in der gewählten Sprache übersetzen, lesen, speichern, notieren und ordnen." },
+  "actionTitle": { "message": "Hacker News KI-Reader öffnen" }
+}

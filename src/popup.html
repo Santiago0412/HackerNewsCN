@@ -3,54 +3,102 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>HN 中文助手</title>
+  <title data-i18n="optionsName">HN Reader</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <header>
-    <div class="brand"><img src="../assets/logo.svg" alt=""><div><strong>HN 中文</strong><span>智能阅读助手</span></div></div>
+    <div class="brand"><img src="../assets/logo.svg" alt=""><div><strong data-i18n="appName">HN Reader</strong><span data-i18n="appSubtitle">Multilingual AI assistant</span></div></div>
     <div class="header-actions">
-      <button id="translateCurrentPage" class="page-translate" title="翻译当前打开的网页"><span aria-hidden="true">文A</span><b>译当前页</b></button>
-      <button id="settings" class="icon" title="设置" aria-label="设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4ZM19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg></button>
+      <button id="translateCurrentPage" class="page-translate" data-i18n-title="translatePage"><span aria-hidden="true">A↔</span><b data-i18n="translatePage">Translate page</b></button>
+      <button id="openLibrary" class="icon library-entry" data-i18n-title="library" data-i18n-aria-label="library"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.8 4.2c0-.8.6-1.4 1.4-1.4h7.6c.8 0 1.4.6 1.4 1.4v16l-5.2-3.4-5.2 3.4v-16Z"/></svg><span id="libraryBadge" class="library-badge" hidden>0</span></button>
+      <button id="settings" class="icon" data-i18n-title="settings" data-i18n-aria-label="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4ZM19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg></button>
     </div>
   </header>
   <section id="onboarding" hidden>
-    <div class="welcome"><span>欢迎使用</span><b>先完成简单设置</b><p>选择模型并粘贴 Key，无需注册插件账号。</p></div>
-    <label><span>1　选择翻译模型</span><select id="onboardingModel"></select></label>
+    <div class="welcome"><span data-i18n="welcome">Welcome</span><b data-i18n="setupTitle">Complete a quick setup</b><p data-i18n="setupDescription">Choose a target language and model.</p></div>
+    <label><span>1　<i data-i18n="translateTo">Translate into</i></span><select id="onboardingLanguage"></select></label>
+    <label id="onboardingCustomLanguageField" class="nested-field" hidden><span data-i18n="customLanguage">Target language name</span><input id="onboardingCustomLanguage" type="text" maxlength="80" data-i18n-placeholder="customLanguagePlaceholder"></label>
+    <label><span>2　<i data-i18n="chooseModel">Choose model service</i></span><select id="onboardingModel"></select></label>
+    <div id="onboardingCustomProvider" class="onboarding-custom" hidden>
+      <label><span data-i18n="apiUrl">API endpoint</span><input id="onboardingEndpoint" type="url" inputmode="url" autocomplete="url" data-i18n-placeholder="endpointPlaceholder"></label>
+      <label><span data-i18n="modelName">Model name</span><input id="onboardingCustomModel" type="text" autocomplete="off" data-i18n-placeholder="modelPlaceholder"></label>
+      <p data-i18n="endpointHint">Enter the complete OpenAI-compatible endpoint.</p>
+    </div>
     <div id="onboardingGuide" class="key-guide"></div>
-    <label><span>2　粘贴 API Key</span><input id="onboardingKey" type="password" autocomplete="off" placeholder="粘贴服务商生成的原始 Key"></label>
-    <fieldset><legend>3　感兴趣的话题 <small>可选，不选则显示全部</small></legend><div id="onboardingTopics" class="onboarding-topics"></div></fieldset>
-    <button id="startReading" class="primary">保存并开始阅读</button>
+    <label><span>3　<i data-i18n="apiKey">Paste API key</i></span><input id="onboardingKey" type="password" autocomplete="off" data-i18n-placeholder="apiKeyPlaceholder"></label>
+    <fieldset><legend>4　<i data-i18n="interests">Topics you like</i> <small data-i18n="optionalAll">Optional</small></legend><div id="onboardingTopics" class="onboarding-topics"></div></fieldset>
+    <button id="startReading" class="primary" data-i18n="saveStart">Save and start reading</button>
     <div id="onboardingError" role="alert"></div>
   </section>
-  <nav id="feeds" aria-label="新闻分类">
-    <button data-feed="favorites">关注</button>
-    <button class="active" data-feed="topstories">热门</button>
-    <button data-feed="newstories">最新</button>
-    <button data-feed="beststories">最佳</button>
-    <button data-feed="askstories">问答</button>
-    <button data-feed="showstories">作品</button>
+  <nav id="feeds" data-i18n-aria-label="newsCategories">
+    <button data-feed="favorites" data-i18n="feedFollowing">Following</button>
+    <button class="active" data-feed="topstories" data-i18n="feedTop">Top</button>
+    <button data-feed="newstories" data-i18n="feedNew">New</button>
+    <button data-feed="beststories" data-i18n="feedBest">Best</button>
+    <button data-feed="askstories" data-i18n="feedAsk">Ask</button>
+    <button data-feed="showstories" data-i18n="feedShow">Show</button>
   </nav>
   <div id="translationProgress" class="translation-progress" hidden>
-    <div><span id="progressLabel">正在翻译…</span><b id="progressText">0%</b></div>
+    <div><span id="progressLabel" data-i18n="translating">Translating…</span><b id="progressText">0%</b></div>
     <progress id="progressBar" max="100" value="0"></progress>
   </div>
   <main id="main">
     <div id="notice" role="status"></div>
-    <div id="loading" class="loading"><i></i><span>正在获取 Hacker News…</span></div>
+    <div id="loading" class="loading"><i></i><span data-i18n="fetching">Fetching Hacker News…</span></div>
     <ol id="stories"></ol>
     <section id="discussion" hidden>
-      <button id="back" class="back">← 返回新闻列表</button>
+      <button id="back" class="back" data-i18n="backToList">← Back to stories</button>
       <article id="discussionStory"></article>
-      <h2>热门讨论</h2>
+      <h2 data-i18n="topDiscussion">Top discussion</h2>
       <div id="comments"></div>
     </section>
     <section id="articleReader" hidden>
-      <button id="articleBack" class="back">← 返回新闻列表</button>
+      <button id="articleBack" class="back" data-i18n="backToList">← Back to stories</button>
       <article id="articleContent"></article>
     </section>
+    <section id="library" hidden>
+      <button id="libraryBack" class="back" data-i18n="backToList">← Back to stories</button>
+      <div class="library-head">
+        <div><span data-i18n="readingArchive">Your reading archive</span><h1 data-i18n="library">Bookmarks & notes</h1><p id="libraryStats" data-i18n="localCount">0 items · Stored locally</p></div>
+        <div class="library-actions">
+          <button id="summarizeLibrary" class="soft-action" data-i18n="organizeAI">Organize with AI</button>
+          <button id="exportLibrary" class="soft-action" data-i18n="export">Export</button>
+        </div>
+      </div>
+      <div id="libraryEmpty" class="library-empty" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.8 4.2c0-.8.6-1.4 1.4-1.4h7.6c.8 0 1.4.6 1.4 1.4v16l-5.2-3.4-5.2 3.4v-16Z"/></svg><b data-i18n="noBookmarks">No bookmarks yet</b><p data-i18n="noBookmarksHint">Tap a bookmark to save it locally.</p></div>
+      <ol id="libraryItems"></ol>
+    </section>
   </main>
-  <footer><button id="refresh">刷新</button><span id="updated"></span></footer>
+  <footer><button id="refresh" data-i18n="refresh">Refresh</button><span id="updated"></span></footer>
+
+  <button id="chatFab" class="chat-fab" type="button" data-i18n-aria-label="openAssistant" data-i18n-title="askAI"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.2a3.8 3.8 0 0 1-3.8 3.8H9l-5 3v-6.8A3.8 3.8 0 0 1 2 10.8v-3A3.8 3.8 0 0 1 5.8 4h10.4A3.8 3.8 0 0 1 20 7.8v6.4Z"/><path d="M7 9h.01M11 9h.01M15 9h.01"/></svg></button>
+  <div id="chatBackdrop" class="sheet-backdrop" hidden></div>
+  <aside id="chatDrawer" class="chat-drawer" data-i18n-aria-label="aiAssistant" aria-hidden="true">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="chat-head"><div><span data-i18n="aiAssistant">AI reading assistant</span><b id="chatContextLabel" data-i18n="currentList">Current story list</b></div><button id="closeChat" class="sheet-close" type="button" data-i18n-aria-label="close">×</button></div>
+    <div class="chat-scope" role="group" data-i18n-aria-label="questionScope"><button id="chatScopeCurrent" class="active" type="button" data-i18n="currentContent">Current content</button><button id="chatScopeLibrary" type="button" data-i18n="myBookmarks">My bookmarks</button></div>
+    <div id="chatThread" class="chat-thread" aria-live="polite"></div>
+    <div id="chatQuick" class="chat-quick"></div>
+    <form id="chatForm" class="chat-input"><textarea id="chatInput" rows="1" maxlength="2000" data-i18n-placeholder="askPlaceholder"></textarea><button id="chatSend" type="submit" data-i18n-aria-label="send"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 17 8-17 8 3-8-3-8Zm3 8h14"/></svg></button></form>
+    <p class="chat-privacy" data-i18n="chatPrivacy">Selected content is sent only when you ask.</p>
+  </aside>
+
+  <dialog id="noteDialog" class="app-dialog">
+    <form id="noteForm" method="dialog">
+      <div class="dialog-head"><div><span data-i18n="readingNote">Reading note</span><b id="noteTitle"></b></div><button class="sheet-close" value="cancel" data-i18n-aria-label="close">×</button></div>
+      <textarea id="noteText" maxlength="20000" data-i18n-placeholder="notePlaceholder"></textarea>
+      <div class="dialog-foot"><span id="noteCount">0 / 20,000</span><button value="cancel" class="ghost-action" data-i18n="cancel">Cancel</button><button id="saveNote" value="default" class="primary-action" data-i18n="saveNote">Save note</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="exportDialog" class="app-dialog compact-dialog">
+    <form method="dialog">
+      <div class="dialog-head"><div><span data-i18n="exportBookmarks">Export bookmarks</span><b data-i18n="exportAllNotes">Includes all notes</b></div><button class="sheet-close" value="cancel" data-i18n-aria-label="close">×</button></div>
+      <div class="export-options"><button id="exportMarkdown" type="button"><b>Markdown</b><span data-i18n="markdownHint">Best for note apps</span></button><button id="exportJson" type="button"><b>JSON</b><span data-i18n="jsonHint">Structured backup</span></button></div>
+    </form>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <script type="module" src="popup.js"></script>
 </body>
 </html>

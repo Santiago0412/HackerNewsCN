@@ -1,21 +1,35 @@
 import { articlePageNeedsInteraction } from "./lib/article.js";
+import {
+  LANGUAGE_CHOICES,
+  MODEL_CHOICES,
+  customEndpointPermission,
+  normalizeSettings,
+  resolveTargetLanguage,
+  selectedModelIndex,
+  validateConfiguration
+} from "./lib/settings.js";
+import { applyDocumentTranslations, createTranslator } from "./lib/ui-i18n.js";
+import {
+  ReadingLibrary,
+  buildLibraryContext,
+  exportLibraryJson,
+  exportLibraryMarkdown,
+  libraryItemFromStory,
+  libraryItemToStory
+} from "./lib/library.js";
 
 const API = "https://hacker-news.firebaseio.com/v0";
 const PAGE_SIZE = 20;
 const COMMENT_LIMIT = 10;
 const TRANSLATION_CONCURRENCY = 3;
-const ARTICLE_QUICK_QUESTIONS = ["用一句话总结这篇文章", "解释文中的关键术语", "这对普通读者意味着什么"];
-const DISCUSSION_QUICK_QUESTIONS = ["总结大家的主要观点", "有哪些不同意见", "最有价值的一条评论是什么"];
+const ARTICLE_QUICK_KEYS = ["quickArticleSummary", "quickArticleTerms", "quickArticleMeaning"];
+const DISCUSSION_QUICK_KEYS = ["quickDiscussionSummary", "quickDiscussionDifferences", "quickDiscussionBest"];
+const LIST_QUICK_KEYS = ["quickListWorthReading", "quickListTopics", "quickListRecommend"];
+const LIBRARY_QUICK_KEYS = ["quickLibrarySummary", "quickLibraryTopics", "quickLibraryResearch"];
 const DEFAULT_UI_SCALE = 1.1;
 const MIN_UI_SCALE = 0.9;
 const MAX_UI_SCALE = 1.5;
-const MODEL_CHOICES = [
-  { provider: "openai", model: "gpt-5-mini", label: "OpenAI · GPT-5 mini", keyUrl: "https://platform.openai.com/api-keys", keySite: "OpenAI Platform" },
-  { provider: "anthropic", model: "claude-haiku-4-5", label: "Anthropic · Claude Haiku 4.5", keyUrl: "https://console.anthropic.com/settings/keys", keySite: "Claude Console" },
-  { provider: "deepseek", model: "deepseek-v4-flash", label: "DeepSeek · V4 Flash", keyUrl: "https://platform.deepseek.com/api_keys", keySite: "DeepSeek 开放平台" },
-  { provider: "gemini", model: "gemini-3.1-flash-lite", label: "Google · Gemini 3.1 Flash-Lite", keyUrl: "https://aistudio.google.com/app/apikey", keySite: "Google AI Studio" }
-];
-const TOPIC_LABELS = { ai: "人工智能", programming: "编程开发", startup: "创业商业", security: "安全隐私", science: "科学研究", hardware: "硬件设备", design: "设计体验", culture: "文化社会" };
+const TOPIC_KEYS = { ai: "topicAI", programming: "topicProgramming", startup: "topicStartup", security: "topicSecurity", science: "topicScience", hardware: "topicHardware", design: "topicDesign", culture: "topicCulture" };
 const TOPICS = {
   ai: ["ai", "llm", "gpt", "model", "machine learning", "neural", "agent", "openai", "anthropic"],
   programming: ["programming", "developer", "code", "compiler", "javascript", "python", "rust", "golang", "database", "api"],
@@ -28,11 +42,23 @@ const TOPICS = {
 };
 
 let settings = {};
+let t = createTranslator("en");
 let activeFeed = "topstories";
 let stories = [];
 let progressRun = 0;
 let uiScale = DEFAULT_UI_SCALE;
 let currentPageLabelTimer;
+let activeScreen = "list";
+let detailReturnScreen = "list";
+let libraryItems = [];
+let savedById = new Map();
+let noteTargetId = "";
+let toastTimer;
+let chatScope = "current";
+let chatBusy = false;
+let currentReadingContext = { key: "list", label: "", text: "" };
+const chatConversations = { current: [], library: [] };
+const readingLibrary = new ReadingLibrary(chrome.storage.local);
 const listScrollPositions = new Map();
 const $ = (id) => document.getElementById(id);
 
@@ -40,7 +66,10 @@ init();
 
 async function init() {
   const stored = await chrome.storage.local.get(["settings", "uiScale"]);
-  settings = stored.settings || {};
+  settings = normalizeSettings(stored.settings);
+  t = applyDocumentTranslations(document, settings);
+  currentReadingContext.label = t("currentList");
+  await refreshLibraryState();
   uiScale = normalizeUiScale(stored.uiScale);
   applyUiScale();
   bindEvents();
@@ -58,8 +87,33 @@ function bindEvents() {
   $("settings").addEventListener("click", () => chrome.runtime.openOptionsPage());
   $("main").addEventListener("scroll", updateHeaderVisibility, { passive: true });
   $("refresh").addEventListener("click", () => loadFeed(true, true));
-  $("back").addEventListener("click", () => showList());
-  $("articleBack").addEventListener("click", () => showList());
+  $("back").addEventListener("click", returnFromDetail);
+  $("articleBack").addEventListener("click", returnFromDetail);
+  $("openLibrary").addEventListener("click", () => activeScreen === "library" ? showList() : openLibrary());
+  $("libraryBack").addEventListener("click", () => showList());
+  $("summarizeLibrary").addEventListener("click", () => openLibrarySummary());
+  $("exportLibrary").addEventListener("click", () => libraryItems.length && $("exportDialog").showModal());
+  $("exportMarkdown").addEventListener("click", () => exportLibrary("markdown"));
+  $("exportJson").addEventListener("click", () => exportLibrary("json"));
+  $("chatFab").addEventListener("click", () => openChat());
+  $("closeChat").addEventListener("click", closeChat);
+  $("chatBackdrop").addEventListener("click", closeChat);
+  $("chatScopeCurrent").addEventListener("click", () => setChatScope("current"));
+  $("chatScopeLibrary").addEventListener("click", () => setChatScope("library"));
+  $("chatForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    askFromChat($("chatInput").value);
+  });
+  $("chatInput").addEventListener("input", autoSizeChatInput);
+  $("chatInput").addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      $("chatForm").requestSubmit();
+    }
+  });
+  $("noteText").addEventListener("input", updateNoteCount);
+  $("noteForm").addEventListener("submit", saveNoteFromDialog);
+  $("onboardingLanguage").addEventListener("change", updateOnboardingLanguageFields);
   $("onboardingModel").addEventListener("change", updateOnboardingGuide);
   $("startReading").addEventListener("click", completeOnboarding);
   $("feeds").addEventListener("click", (event) => {
@@ -105,22 +159,50 @@ function updateHeaderVisibility() {
 }
 
 function buildOnboarding() {
-  MODEL_CHOICES.forEach((choice, index) => $("onboardingModel").add(new Option(choice.label, String(index))));
-  const selected = MODEL_CHOICES.findIndex((choice) => choice.provider === settings.provider && choice.model === settings.model);
-  $("onboardingModel").value = String(selected >= 0 ? selected : 0);
+  LANGUAGE_CHOICES.forEach((choice) => $("onboardingLanguage").add(new Option(choice.value === "custom" ? t("otherLanguage") : choice.label, choice.value)));
+  MODEL_CHOICES.forEach((choice, index) => $("onboardingModel").add(new Option(modelChoiceLabel(choice), String(index))));
+  $("onboardingLanguage").value = settings.targetLanguage;
+  $("onboardingCustomLanguage").value = settings.customTargetLanguage;
+  $("onboardingModel").value = String(selectedModelIndex(settings));
   $("onboardingKey").value = settings.apiKey || "";
-  for (const [value, label] of Object.entries(TOPIC_LABELS)) {
+  $("onboardingEndpoint").value = settings.customEndpoint || "";
+  $("onboardingCustomModel").value = settings.customModel || "";
+  for (const [value, key] of Object.entries(TOPIC_KEYS)) {
     const node = document.createElement("label");
-    node.innerHTML = `<input type="checkbox" value="${value}"><span>${label}</span>`;
+    node.innerHTML = `<input type="checkbox" value="${value}"><span data-i18n="${key}">${t(key)}</span>`;
     node.querySelector("input").checked = settings.topics?.includes(value) || false;
     $("onboardingTopics").append(node);
   }
+  updateOnboardingLanguageFields();
   updateOnboardingGuide();
 }
 
 function updateOnboardingGuide() {
   const choice = MODEL_CHOICES[Number($("onboardingModel").value)] || MODEL_CHOICES[0];
-  $("onboardingGuide").innerHTML = `没有 Key？<a href="${choice.keyUrl}" target="_blank" rel="noreferrer">打开 ${choice.keySite} 创建</a>，复制后粘贴到下面。`;
+  const custom = choice.provider === "custom";
+  $("onboardingCustomProvider").hidden = !custom;
+  $("onboardingGuide").innerHTML = custom
+    ? escapeText(t("otherModelGuide"))
+    : `${escapeText(t("noKey"))} <a href="${choice.keyUrl}" target="_blank" rel="noreferrer">${escapeText(t("openSite", { site: choice.keySite }))}</a>. ${escapeText(t("endpointAutomatic"))}`;
+}
+
+function updateOnboardingLanguageFields() {
+  const custom = $("onboardingLanguage").value === "custom";
+  $("onboardingCustomLanguageField").hidden = !custom;
+  t = applyDocumentTranslations(document, { targetLanguage: $("onboardingLanguage").value });
+  refreshOnboardingLabels();
+  updateOnboardingGuide();
+  $("onboardingError").textContent = custom ? t("targetFallback") : "";
+}
+
+function modelChoiceLabel(choice) {
+  return choice.provider === "custom" ? t("customProvider") : choice.label;
+}
+
+function refreshOnboardingLabels() {
+  [...$("onboardingLanguage").options].forEach((option, index) => { option.textContent = LANGUAGE_CHOICES[index].value === "custom" ? t("otherLanguage") : LANGUAGE_CHOICES[index].label; });
+  [...$("onboardingModel").options].forEach((option, index) => { option.textContent = modelChoiceLabel(MODEL_CHOICES[index]); });
+  document.querySelectorAll("#onboardingTopics [data-i18n]").forEach((node) => { node.textContent = t(node.dataset.i18n); });
 }
 
 function showOnboarding() {
@@ -129,31 +211,47 @@ function showOnboarding() {
   $("stories").hidden = true;
   $("loading").hidden = true;
   $("refresh").closest("footer").hidden = true;
+  $("openLibrary").hidden = true;
+  $("chatFab").hidden = true;
 }
 
 async function completeOnboarding() {
   const apiKey = $("onboardingKey").value.trim();
-  if (!apiKey) return setOnboardingError("请先粘贴 API Key");
-  if (!/^[\x21-\x7E]+$/.test(apiKey)) return setOnboardingError("Key 中包含中文、空格或全角符号。请回到服务商页面，重新复制原始 Key。不要粘贴“API Key：”等说明文字。");
+  if (!apiKey) return setOnboardingError(t("keyRequired"));
+  if (!/^[\x21-\x7E]+$/.test(apiKey)) return setOnboardingError(t("keyInvalid"));
   const choice = MODEL_CHOICES[Number($("onboardingModel").value)] || MODEL_CHOICES[0];
-  settings = {
-    ...settings,
-    provider: choice.provider,
-    model: choice.model,
-    apiKey,
-    topics: [...document.querySelectorAll('#onboardingTopics input:checked')].map((input) => input.value),
-    topicMode: "favorites",
-    autoTranslateTitles: true,
-    showOriginal: true,
-    cacheDays: Number(settings.cacheDays) || 30,
-    maxCacheEntries: Number(settings.maxCacheEntries) || 5000,
-    setupCompleted: true
-  };
+  try {
+    settings = validateConfiguration({
+      ...settings,
+      targetLanguage: $("onboardingLanguage").value,
+      customTargetLanguage: $("onboardingCustomLanguage").value,
+      provider: choice.provider,
+      model: choice.model,
+      apiKey,
+      customEndpoint: $("onboardingEndpoint").value,
+      customModel: $("onboardingCustomModel").value,
+      topics: [...document.querySelectorAll('#onboardingTopics input:checked')].map((input) => input.value),
+      topicMode: "favorites",
+      autoTranslateTitles: true,
+      showOriginal: true,
+      cacheDays: Number(settings.cacheDays) || 30,
+      maxCacheEntries: Number(settings.maxCacheEntries) || 5000,
+      setupCompleted: true
+    });
+    if (choice.provider === "custom") {
+      const granted = await chrome.permissions.request({ origins: [customEndpointPermission(settings.customEndpoint)] });
+      if (!granted) return setOnboardingError(t("endpointPermissionDenied"));
+    }
+  } catch (error) {
+    return setOnboardingError(error.message);
+  }
   await chrome.storage.local.set({ settings });
   $("onboarding").hidden = true;
   $("feeds").hidden = false;
   $("stories").hidden = false;
   $("refresh").closest("footer").hidden = false;
+  $("openLibrary").hidden = false;
+  $("chatFab").hidden = false;
   await loadFeed();
 }
 
@@ -164,13 +262,14 @@ function setOnboardingError(message) {
 async function loadFeed(force = false, preserveScroll = false) {
   if (preserveScroll && !$("stories").hidden) listScrollPositions.set(activeFeed, $("main").scrollTop);
   showList(preserveScroll);
-  setLoading(true, "正在获取 Hacker News…");
+  setLoading(true, t("fetching"));
   setNotice("");
   try {
     if (activeFeed === "favorites" && !settings.topics?.length) {
       stories = [];
       renderStories();
-      setNotice("还没有选择关注话题。点击右上角设置，选择后会显示在这里。", "setup");
+      updateListReadingContext();
+      setNotice(t("topicsMissing"), "setup");
       $("updated").textContent = "";
       return;
     }
@@ -189,12 +288,13 @@ async function loadFeed(force = false, preserveScroll = false) {
     }
     if (activeFeed === "favorites") stories = stories.filter((story) => matchesTopics(story.title)).slice(0, PAGE_SIZE);
     renderStories();
-    if (activeFeed === "favorites" && !stories.length) setNotice("当前热门新闻里暂时没有匹配关注话题的内容。", "setup");
+    updateListReadingContext();
+    if (activeFeed === "favorites" && !stories.length) setNotice(t("noTopicMatches"), "setup");
     if (settings.apiKey) await translateStoryTitles();
-    else setNotice("选择模型并填写 API Key 后，标题会自动显示中文。", "setup");
-    $("updated").textContent = fresh ? "使用 5 分钟内缓存" : `更新于 ${new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}`;
+    else setNotice(t("translationSetup", { language: resolveTargetLanguage(settings).label }), "setup");
+    $("updated").textContent = fresh ? t("cachedFiveMinutes") : t("updatedAt", { time: t.date(new Date(), { hour: "2-digit", minute: "2-digit" }) });
   } catch (error) {
-    setNotice(`获取新闻失败：${error.message}`, "error");
+    setNotice(t("fetchFailed", { error: localizeBackendError(error.message) }), "error");
   } finally {
     setLoading(false);
   }
@@ -225,13 +325,14 @@ function renderStories() {
     const meta = document.createElement("div");
     meta.className = "meta";
     const domain = story.url ? safeDomain(story.url) : "news.ycombinator.com";
-    meta.innerHTML = `<span>${story.score || 0} 分</span><span>${escapeText(story.by || "")}</span><span>${relativeTime(story.time)}</span><span>${escapeText(domain)}</span>`;
+    meta.innerHTML = `<span>${escapeText(t("points", { count: t.number(story.score || 0) }))}</span><span>${escapeText(story.by || "")}</span><span>${relativeTime(story.time)}</span><span>${escapeText(domain)}</span>`;
     const discussion = document.createElement("button");
     discussion.className = "discussion-button";
-    discussion.textContent = `${story.descendants || 0} 条讨论`;
+    discussion.textContent = t("comments", { count: t.number(story.descendants || 0) });
     discussion.addEventListener("click", () => openDiscussion(story));
+    const bookmark = createBookmarkButton(story);
     meta.append(discussion);
-    content.append(title, original, meta);
+    content.append(title, original, meta, bookmark);
     item.append(rank, content);
     $("stories").append(item);
   });
@@ -240,15 +341,17 @@ function renderStories() {
 async function translateStoryTitles() {
   const titles = stories.map((story) => story.title);
   try {
-    const translations = await translateWithProgress(titles, "正在翻译新闻标题", 5);
+    const translations = await translateWithProgress(titles, t("translateTitles"), 5);
     translations.forEach((translated, index) => {
+      stories[index]._translatedTitle = translated;
       const link = document.querySelector(`[data-story-id="${stories[index].id}"]`);
       if (!link) return;
       link.textContent = translated;
-      link.nextElementSibling.hidden = false;
+      link.nextElementSibling.hidden = translated === stories[index].title;
     });
+    updateListReadingContext();
   } catch (error) {
-    setNotice(`翻译暂时失败，已显示英文：${error.message}`, "error");
+    setNotice(t("translationFallback", { error: localizeBackendError(error.message) }), "error");
   }
 }
 
@@ -258,43 +361,50 @@ async function openDiscussion(story) {
   $("discussion").hidden = false;
   $("feeds").hidden = true;
   $("discussionStory").replaceChildren();
-  $("discussion").querySelector(".ask-panel")?.remove();
   const title = document.createElement("h1");
-  title.textContent = document.querySelector(`[data-story-id="${story.id}"]`)?.textContent || story.title;
+  const translatedTitle = document.querySelector(`[data-story-id="${story.id}"]`)?.textContent || story._translatedTitle || "";
+  title.textContent = translatedTitle || story.title;
   $("discussionStory").append(title);
   const storyText = story.text ? htmlToText(story.text) : "";
+  story._translatedTitle = translatedTitle !== story.title ? translatedTitle : story._translatedTitle || "";
+  story._libraryExcerpt = storyText;
   let storyBody = null;
   if (story.text) {
     storyBody = document.createElement("p");
     storyBody.textContent = storyText;
     $("discussionStory").append(storyBody);
   }
+  $("discussionStory").append(createDetailActions(story));
+  setReadingContext(`discussion:${story.id}`, t("discussion", { title: title.textContent }), [story.title, storyText].filter(Boolean).join("\n\n"));
   $("comments").replaceChildren();
-  setLoading(true, "正在获取讨论…");
+  setLoading(true, t("fetchingDiscussion"));
   try {
     const comments = await fetchComments(story.kids || []);
-    if (!comments.length) $("comments").textContent = "暂时没有讨论。";
+    if (!comments.length) $("comments").textContent = t("noDiscussion");
     else comments.forEach((comment) => renderComment(comment, htmlToText(comment.text || "")));
     if (settings.apiKey && (storyText || comments.length)) {
       const inputs = [...(storyText ? [storyText] : []), ...comments.map((comment) => htmlToText(comment.text || ""))];
-      const translations = await translateWithProgress(inputs, storyText ? "正在翻译原帖和讨论" : "正在翻译热门讨论", 3);
+      const translations = await translateWithProgress(inputs, storyText ? t("translatingDiscussion") : t("translatingComments"), 3);
       let commentOffset = 0;
       if (storyText && storyBody) {
         storyBody.textContent = translations[0];
         commentOffset = 1;
         const source = document.createElement("details");
         source.className = "story-original";
-        source.innerHTML = "<summary>查看原帖英文</summary><p></p>";
+        source.innerHTML = `<summary>${escapeText(t("viewOriginalPost"))}</summary><p></p>`;
         source.querySelector("p").textContent = storyText;
         $("discussionStory").append(source);
       }
       $("comments").replaceChildren();
-      if (!comments.length) $("comments").textContent = "暂时没有讨论。";
+      if (!comments.length) $("comments").textContent = t("noDiscussion");
       else comments.forEach((comment, index) => renderComment(comment, translations[index + commentOffset], htmlToText(comment.text || "")));
     }
-    mountAskPanel($("discussion"), () => [story.title, storyText, ...comments.map((comment) => `${comment.by || "匿名"}: ${htmlToText(comment.text || "")}`)].filter(Boolean).join("\n\n"), DISCUSSION_QUICK_QUESTIONS);
+    const discussionContext = [story.title, storyText, ...comments.map((comment) => `${comment.by || t("anonymous")}: ${htmlToText(comment.text || "")}`)].filter(Boolean).join("\n\n");
+    story._libraryExcerpt = discussionContext.slice(0, 12000);
+    setReadingContext(`discussion:${story.id}`, t("discussion", { title: title.textContent }), discussionContext);
+    await enrichSavedItem(story);
   } catch (error) {
-    setNotice(`讨论加载失败：${error.message}`, "error");
+    setNotice(t("discussionFailed", { error: localizeBackendError(error.message) }), "error");
   } finally {
     setLoading(false);
   }
@@ -302,13 +412,13 @@ async function openDiscussion(story) {
 
 async function openArticle(story) {
   let url;
-  try { url = new URL(story.url); } catch { return setNotice("文章链接无效", "error"); }
-  if (url.protocol !== "https:" && url.protocol !== "http:") return setNotice("该链接无法在插件内读取", "error");
+  try { url = new URL(story.url); } catch { return setNotice(t("invalidArticleUrl"), "error"); }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return setNotice(t("unreadableLink"), "error");
   const permissions = [`${url.protocol}//${url.host}/*`];
   const alternateProtocol = url.protocol === "https:" ? "http:" : "https:";
   if (!url.port) permissions.push(`${alternateProtocol}//${url.host}/*`);
   const granted = await chrome.permissions.request({ origins: permissions });
-  if (!granted) return setNotice("需要允许读取该文章网站，才能在侧边栏显示正文。", "error");
+  if (!granted) return setNotice(t("articlePermission"), "error");
 
   enterDetailView();
   $("stories").hidden = true;
@@ -316,8 +426,8 @@ async function openArticle(story) {
   $("articleReader").hidden = false;
   $("feeds").hidden = true;
   $("articleContent").replaceChildren();
-  $("articleReader").querySelector(".ask-panel")?.remove();
-  setLoading(true, "正在抓取文章正文…");
+  setReadingContext(`article:${story.id}`, t("article", { title: story._translatedTitle || story.title }), story.title);
+  setLoading(true, t("fetchingArticle"));
   setNotice("");
   try {
     let response;
@@ -326,26 +436,29 @@ async function openArticle(story) {
       response = await fetchArticle(story.url);
       article = extractArticle(response.html, response.finalUrl, story.title);
     } catch (fetchOrParseError) {
-      setLoading(true, "直接抓取失败，正在后台渲染…");
+      setLoading(true, t("renderingArticle"));
       try {
         article = await renderArticle(story.url);
       } catch (backgroundError) {
-        setLoading(true, "已打开原网页；如提示登录，请完成登录，登录后会自动继续…");
+        setLoading(true, t("interactiveArticle"));
         article = await renderArticleInteractively(story.url);
       }
     }
     const articleUrl = article.finalUrl || response?.finalUrl || story.url;
-    setLoading(true, `正在翻译文章（${article.blocks.length} 段）…`);
+    story._libraryExcerpt = article.blocks.join("\n\n").slice(0, 12000);
+    setLoading(true, t("translatingArticleCount", { count: t.number(article.blocks.length) }));
     if (settings.apiKey) {
-      const [translatedTitle, ...translations] = await translateWithProgress([article.title, ...article.blocks], "正在翻译文章", 3);
-      renderArticleHeader(translatedTitle, articleUrl, article.title);
+      const [translatedTitle, ...translations] = await translateWithProgress([article.title, ...article.blocks], t("translatingArticle"), 3);
+      story._translatedTitle = translatedTitle;
+      renderArticleHeader(translatedTitle, articleUrl, article.title, story);
       renderArticleBody(translations, article.blocks);
     } else {
-      renderArticleHeader(article.title, articleUrl);
+      renderArticleHeader(article.title, articleUrl, "", story);
       renderArticleBody(article.blocks, []);
-      setNotice("尚未配置 API Key，正文已在侧边栏显示，但没有翻译。", "setup");
+      setNotice(t("noTranslationKey"), "setup");
     }
-    mountAskPanel($("articleReader"), () => `${article.title}\n\n${article.blocks.join("\n\n")}`, ARTICLE_QUICK_QUESTIONS);
+    setReadingContext(`article:${story.id}`, t("article", { title: story._translatedTitle || article.title }), `${article.title}\n\n${article.blocks.join("\n\n")}`);
+    await enrichSavedItem(story);
   } catch (error) {
     renderArticleFailure(story, error.message);
   } finally {
@@ -355,24 +468,24 @@ async function openArticle(story) {
 
 async function translateCurrentPage() {
   const granted = await chrome.permissions.request({ origins: ["https://*/*", "http://*/*"] });
-  if (!granted) return setNotice("需要允许读取网页，才能翻译当前页面。", "error");
+  if (!granted) return setNotice(t("pagePermission"), "error");
 
   const button = $("translateCurrentPage");
   const label = button.querySelector("b");
   clearTimeout(currentPageLabelTimer);
   button.disabled = true;
-  label.textContent = "读取中…";
+  label.textContent = t("readingPage");
   try {
     const page = await extractActivePage();
-    label.textContent = "翻译中…";
-    const translations = await translateWithProgress(page.items.map((item) => item.text), "正在翻译当前网页", 3);
+    label.textContent = t("translatingPage");
+    const translations = await translateWithProgress(page.items.map((item) => item.text), t("translatingCurrentPage"), 3);
     const items = page.items.map((item, index) => ({ id: item.id, translation: translations[index] }));
     const result = await applyActivePageTranslations(page.tabId, items);
-    label.textContent = `已显示 ${result.applied} 段`;
-    currentPageLabelTimer = setTimeout(() => { label.textContent = "译当前页"; }, 1800);
+    label.textContent = t("shownSections", { count: t.number(result.applied) });
+    currentPageLabelTimer = setTimeout(() => { label.textContent = t("translatePage"); }, 1800);
   } catch (error) {
-    setNotice(`当前网页翻译失败：${error.message}`, "error");
-    label.textContent = "译当前页";
+    setNotice(t("pageTranslationFailed", { error: localizeBackendError(error.message) }), "error");
+    label.textContent = t("translatePage");
   } finally {
     button.disabled = false;
   }
@@ -475,7 +588,7 @@ function chunkText(text, size) {
   return chunks;
 }
 
-function renderArticleHeader(title, url, originalTitle = "") {
+function renderArticleHeader(title, url, originalTitle = "", story = null) {
   const heading = document.createElement("h1");
   heading.textContent = title;
   const original = document.createElement("div");
@@ -487,8 +600,9 @@ function renderArticleHeader(title, url, originalTitle = "") {
   source.href = url;
   source.target = "_blank";
   source.rel = "noreferrer";
-  source.textContent = `原文来源：${safeDomain(url)} ↗`;
+  source.textContent = t("originalSource", { domain: safeDomain(url) });
   $("articleContent").append(heading, original, source);
+  if (story) $("articleContent").append(createDetailActions(story));
 }
 
 function renderArticleBody(translations, originals) {
@@ -498,7 +612,7 @@ function renderArticleBody(translations, originals) {
     $("articleContent").append(paragraph);
     if (originals[index] && originals[index] !== translation) {
       const details = document.createElement("details");
-      details.innerHTML = "<summary>英文原文</summary><p></p>";
+      details.innerHTML = `<summary>${escapeText(t("original"))}</summary><p></p>`;
       details.querySelector("p").textContent = originals[index];
       $("articleContent").append(details);
     }
@@ -511,14 +625,14 @@ function renderArticleFailure(story, message) {
   heading.textContent = story.title;
   const error = document.createElement("p");
   error.className = "reader-error";
-  error.textContent = `无法在插件内读取：${message}`;
+  error.textContent = t("readFailed", { error: localizeBackendError(message) });
   const link = document.createElement("a");
   link.className = "article-source";
   link.href = story.url;
   link.target = "_blank";
   link.rel = "noreferrer";
-  link.textContent = "仍然打开原网站 ↗";
-  $("articleContent").append(heading, error, link);
+  link.textContent = t("openOriginal");
+  $("articleContent").append(heading, error, link, createDetailActions(story));
 }
 
 async function fetchComments(ids) {
@@ -544,13 +658,13 @@ function renderComment(comment, text, original = "") {
   content.className = "comment-content";
   const meta = document.createElement("div");
   meta.className = "comment-meta";
-  meta.textContent = `${comment.by || "匿名"} · ${relativeTime(comment.time)}`;
+  meta.textContent = `${comment.by || t("anonymous")} · ${relativeTime(comment.time)}`;
   const body = document.createElement("p");
   body.textContent = text;
   content.append(meta, body);
   if (original && original !== text) {
     const source = document.createElement("details");
-    source.innerHTML = `<summary>查看英文原文</summary><p></p>`;
+    source.innerHTML = `<summary>${escapeText(t("original"))}</summary><p></p>`;
     source.querySelector("p").textContent = original;
     content.append(source);
   }
@@ -559,16 +673,25 @@ function renderComment(comment, text, original = "") {
 }
 
 function enterDetailView() {
-  listScrollPositions.set(activeFeed, $("main").scrollTop);
+  detailReturnScreen = activeScreen === "library" ? "library" : "list";
+  if (activeScreen === "list") listScrollPositions.set(activeFeed, $("main").scrollTop);
+  activeScreen = "detail";
   $("main").scrollTop = 0;
+  $("library").hidden = true;
+  $("openLibrary").classList.remove("active");
   updateHeaderVisibility();
 }
 
 function showList(restoreScroll = true) {
+  activeScreen = "list";
   $("stories").hidden = false;
   $("discussion").hidden = true;
   $("articleReader").hidden = true;
+  $("library").hidden = true;
   $("feeds").hidden = false;
+  $("openLibrary").classList.remove("active");
+  $("refresh").closest("footer").hidden = false;
+  updateListReadingContext();
   const targetScroll = restoreScroll ? listScrollPositions.get(activeFeed) || 0 : 0;
   if (!restoreScroll) listScrollPositions.set(activeFeed, 0);
   requestAnimationFrame(() => {
@@ -577,11 +700,16 @@ function showList(restoreScroll = true) {
   });
 }
 
+function returnFromDetail() {
+  if (detailReturnScreen === "library") openLibrary();
+  else showList();
+}
+
 function translate(texts) {
   return new Promise((resolve, reject) => chrome.runtime.sendMessage({ type: "TRANSLATE", texts }, (response) => {
     if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
     else if (response?.ok) resolve(response.translations);
-    else reject(new Error(response?.error || "翻译失败"));
+    else reject(new Error(localizeBackendError(response?.error || t("translateFailed"))));
   }));
 }
 
@@ -589,106 +717,382 @@ function sendAsk(context, history) {
   return new Promise((resolve, reject) => chrome.runtime.sendMessage({ type: "ASK", context, history }, (response) => {
     if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
     else if (response?.ok) resolve(response.answer);
-    else reject(new Error(response?.error || "追问失败"));
+    else reject(new Error(localizeBackendError(response?.error || t("followupFailed"))));
   }));
 }
 
-function mountAskPanel(host, getContext, quickQuestions) {
-  host.querySelector(".ask-panel")?.remove();
-  const panel = document.createElement("section");
-  panel.className = "ask-panel";
-  const head = document.createElement("div");
-  head.className = "ask-head";
-  head.textContent = "追问 AI";
-  panel.append(head);
+function createBookmarkButton(story) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "bookmark-button";
+  button.dataset.bookmarkId = String(story.id);
+  button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.8 4.2c0-.8.6-1.4 1.4-1.4h7.6c.8 0 1.4.6 1.4 1.4v16l-5.2-3.4-5.2 3.4v-16Z"/></svg>';
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleBookmark(story);
+  });
+  syncBookmarkButton(button, String(story.id));
+  return button;
+}
 
-  if (!settings.apiKey) {
-    const setup = document.createElement("div");
-    setup.className = "ask-setup";
-    setup.textContent = "配置 API Key 后即可就这篇内容向 AI 提问。";
-    const openSettings = document.createElement("button");
-    openSettings.type = "button";
-    openSettings.textContent = "去设置";
-    openSettings.addEventListener("click", () => chrome.runtime.openOptionsPage());
-    setup.append(openSettings);
-    panel.append(setup);
-    host.append(panel);
-    return;
-  }
+function createDetailActions(story) {
+  const actions = document.createElement("div");
+  actions.className = "detail-actions";
+  const bookmark = document.createElement("button");
+  bookmark.type = "button";
+  bookmark.dataset.bookmarkId = String(story.id);
+  bookmark.innerHTML = `<svg class="bookmark-shape" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.8 4.2c0-.8.6-1.4 1.4-1.4h7.6c.8 0 1.4.6 1.4 1.4v16l-5.2-3.4-5.2 3.4v-16Z"/></svg><span>${escapeText(t("bookmark"))}</span>`;
+  bookmark.addEventListener("click", () => toggleBookmark(story));
+  const note = document.createElement("button");
+  note.type = "button";
+  note.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l11-11a2.8 2.8 0 0 0-4-4L4 16v4Zm9-13 4 4"/></svg><span>${escapeText(t("note"))}</span>`;
+  note.addEventListener("click", () => openNoteEditor(story));
+  actions.append(bookmark, note);
+  syncBookmarkButton(bookmark, String(story.id));
+  return actions;
+}
 
-  const thread = document.createElement("div");
-  thread.className = "ask-thread";
-  const quick = document.createElement("div");
-  quick.className = "ask-quick";
-  const form = document.createElement("form");
-  form.className = "ask-input";
-  const input = document.createElement("input");
-  input.type = "text";
-  input.placeholder = "就这篇内容提个问题…";
-  input.autocomplete = "off";
-  const submit = document.createElement("button");
-  submit.type = "submit";
-  submit.textContent = "发送";
-  form.append(input, submit);
-
-  const conversation = [];
-  let busy = false;
-
-  const addBubble = (role, text) => {
-    const bubble = document.createElement("div");
-    bubble.className = `ask-msg ${role}`;
-    bubble.textContent = text;
-    thread.append(bubble);
-    thread.scrollTop = thread.scrollHeight;
-    return bubble;
-  };
-
-  const ask = async (question) => {
-    const q = String(question || "").trim();
-    if (!q || busy) return;
-    busy = true;
-    input.value = "";
-    quick.hidden = true;
-    input.disabled = true;
-    submit.disabled = true;
-    addBubble("user", q);
-    conversation.push({ role: "user", content: q });
-    const pending = addBubble("ai", "");
-    pending.classList.add("loading");
-    pending.innerHTML = "<i></i><i></i><i></i>";
-    try {
-      const answer = await sendAsk(getContext(), conversation);
-      conversation.push({ role: "assistant", content: answer });
-      pending.classList.remove("loading");
-      pending.textContent = answer;
-    } catch (error) {
-      conversation.pop();
-      pending.classList.remove("loading");
-      pending.classList.add("error");
-      pending.textContent = `回答失败：${error.message}`;
-    } finally {
-      busy = false;
-      input.disabled = false;
-      submit.disabled = false;
-      input.focus();
-      thread.scrollTop = thread.scrollHeight;
+async function toggleBookmark(story) {
+  try {
+    const id = String(story.id);
+    const existing = savedById.get(id);
+    if (existing) {
+      if (existing.note && !confirm(t("confirmRemoveNote"))) return;
+      await readingLibrary.remove(id);
+      showToast(t("bookmarkRemoved"));
+    } else {
+      const translatedTitle = story._translatedTitle || document.querySelector(`[data-story-id="${id}"]`)?.textContent || "";
+      const item = libraryItemFromStory(story, {
+        translatedTitle: translatedTitle === story.title ? "" : translatedTitle,
+        excerpt: story._libraryExcerpt || htmlToText(story.text || "")
+      });
+      await readingLibrary.save(item);
+      showToast(t("bookmarkedLocal"));
     }
-  };
+    await refreshLibraryState(true);
+  } catch (error) {
+    showToast(t("bookmarkFailed", { error: localizeBackendError(error.message) }));
+  }
+}
 
-  quickQuestions.forEach((question) => {
+function syncBookmarkButton(button, id) {
+  const saved = savedById.has(String(id));
+  button.classList.toggle("saved", saved);
+  button.setAttribute("aria-pressed", String(saved));
+  button.title = saved ? t("removeBookmark") : t("bookmark");
+  button.setAttribute("aria-label", button.title);
+  const label = button.querySelector("span");
+  if (label) label.textContent = saved ? t("bookmarked") : t("bookmark");
+}
+
+function syncAllBookmarkButtons() {
+  document.querySelectorAll("[data-bookmark-id]").forEach((button) => syncBookmarkButton(button, button.dataset.bookmarkId));
+}
+
+async function refreshLibraryState(changed = false) {
+  libraryItems = await readingLibrary.list();
+  savedById = new Map(libraryItems.map((item) => [String(item.id), item]));
+  const badge = $("libraryBadge");
+  badge.textContent = libraryItems.length > 99 ? "99+" : String(libraryItems.length);
+  badge.hidden = libraryItems.length === 0;
+  syncAllBookmarkButtons();
+  if (changed) chatConversations.library = [];
+  if (activeScreen === "library") await renderLibrary();
+  if (chatScope === "library" && $("chatDrawer").classList.contains("open")) renderChat();
+}
+
+async function enrichSavedItem(story) {
+  const id = String(story.id);
+  if (!savedById.has(id)) return;
+  await readingLibrary.update(id, {
+    translatedTitle: story._translatedTitle || savedById.get(id).translatedTitle,
+    excerpt: story._libraryExcerpt || savedById.get(id).excerpt
+  });
+  await refreshLibraryState(true);
+}
+
+async function openLibrary() {
+  await refreshLibraryState();
+  activeScreen = "library";
+  $("stories").hidden = true;
+  $("discussion").hidden = true;
+  $("articleReader").hidden = true;
+  $("feeds").hidden = true;
+  $("library").hidden = false;
+  $("openLibrary").classList.add("active");
+  $("refresh").closest("footer").hidden = true;
+  $("main").scrollTop = 0;
+  updateHeaderVisibility();
+  await renderLibrary();
+  setReadingContext("library-view", t("library"), buildLibraryContext(libraryItems));
+}
+
+async function renderLibrary() {
+  const list = $("libraryItems");
+  list.replaceChildren();
+  $("libraryEmpty").hidden = libraryItems.length > 0;
+  $("summarizeLibrary").disabled = libraryItems.length === 0;
+  $("exportLibrary").disabled = libraryItems.length === 0;
+  const bytes = await readingLibrary.bytesInUse().catch(() => null);
+  $("libraryStats").textContent = t("itemsStored", { count: t.number(libraryItems.length), size: bytes === null ? "" : ` · ${formatBytes(bytes)}` });
+
+  libraryItems.forEach((item) => {
+    const card = document.createElement("li");
+    card.className = "library-card";
+    const top = document.createElement("div");
+    top.className = "library-card-top";
+    const title = document.createElement("button");
+    title.type = "button";
+    title.className = "library-card-title";
+    title.textContent = item.translatedTitle || item.title;
+    title.addEventListener("click", () => openSavedItem(item));
+    top.append(title);
+    const original = document.createElement("div");
+    original.className = "library-card-original";
+    original.textContent = item.translatedTitle && item.translatedTitle !== item.title ? item.title : "";
+    original.hidden = !original.textContent;
+    const meta = document.createElement("div");
+    meta.className = "library-card-meta";
+    meta.textContent = `${safeDomain(item.url)} · ${t("points", { count: t.number(item.score || 0) })} · ${t.date(new Date(item.savedAt))}`;
+    const note = document.createElement("div");
+    note.className = `library-note-preview${item.note ? "" : " empty"}`;
+    note.textContent = item.note || t("noNote");
+    const actions = document.createElement("div");
+    actions.className = "library-card-actions";
+    const read = document.createElement("button");
+    read.type = "button";
+    read.textContent = item.url === item.discussionUrl ? t("viewPost") : t("read");
+    read.addEventListener("click", () => openSavedItem(item));
+    const editNote = document.createElement("button");
+    editNote.type = "button";
+    editNote.textContent = item.note ? t("editNote") : t("addNote");
+    editNote.addEventListener("click", () => openNoteEditor(item));
+    const discussion = document.createElement("a");
+    discussion.href = item.discussionUrl;
+    discussion.target = "_blank";
+    discussion.rel = "noreferrer";
+    discussion.textContent = `${t("comments", { count: t.number(item.commentCount || 0) })} ↗`;
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "remove-library";
+    remove.textContent = t("remove");
+    remove.addEventListener("click", () => toggleBookmark(libraryItemToStory(item)));
+    actions.append(read, editNote, discussion, remove);
+    card.append(top, original, meta, note, actions);
+    list.append(card);
+  });
+}
+
+function openSavedItem(item) {
+  const story = libraryItemToStory(item);
+  story._translatedTitle = item.translatedTitle;
+  story._libraryExcerpt = item.excerpt;
+  if (story.url) openArticle(story);
+  else openSavedDiscussion(item);
+}
+
+async function openSavedDiscussion(item) {
+  try {
+    setLoading(true, t("fetchingPost"));
+    const story = await fetchJson(`${API}/item/${item.id}.json`);
+    if (!story || story.deleted || story.dead) throw new Error(t("postUnavailable"));
+    story._translatedTitle = item.translatedTitle;
+    story._libraryExcerpt = item.excerpt;
+    await openDiscussion(story);
+  } catch (error) {
+    setNotice(t("discussionFailed", { error: localizeBackendError(error.message) }), "error");
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function openNoteEditor(source) {
+  try {
+    let item = savedById.get(String(source.id));
+    if (!item) {
+      const story = source.url !== undefined && source.by !== undefined ? source : libraryItemToStory(source);
+      item = await readingLibrary.save(libraryItemFromStory(story, {
+        translatedTitle: story._translatedTitle || "",
+        excerpt: story._libraryExcerpt || htmlToText(story.text || "")
+      }));
+      await refreshLibraryState(true);
+      showToast(t("savedAddNote"));
+    }
+    noteTargetId = String(item.id);
+    $("noteTitle").textContent = item.translatedTitle || item.title;
+    $("noteText").value = item.note || "";
+    updateNoteCount();
+    $("noteDialog").showModal();
+    requestAnimationFrame(() => $("noteText").focus());
+  } catch (error) {
+    showToast(t("noteOpenFailed", { error: localizeBackendError(error.message) }));
+  }
+}
+
+async function saveNoteFromDialog(event) {
+  if (event.submitter?.id !== "saveNote") return;
+  event.preventDefault();
+  if (!noteTargetId) return;
+  try {
+    await readingLibrary.update(noteTargetId, { note: $("noteText").value });
+    $("noteDialog").close();
+    await refreshLibraryState(true);
+    showToast(t("noteSaved"));
+  } catch (error) {
+    showToast(t("noteSaveFailed", { error: localizeBackendError(error.message) }));
+  }
+}
+
+function updateNoteCount() {
+  $("noteCount").textContent = `${$("noteText").value.length.toLocaleString("zh-CN")} / 20,000`;
+}
+
+function exportLibrary(format) {
+  const date = new Date();
+  const stamp = date.toISOString().slice(0, 10);
+  const isMarkdown = format === "markdown";
+  const content = isMarkdown ? exportLibraryMarkdown(libraryItems, date) : exportLibraryJson(libraryItems, date);
+  const blob = new Blob([content], { type: isMarkdown ? "text/markdown;charset=utf-8" : "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `hacker-news-bookmarks-${stamp}.${isMarkdown ? "md" : "json"}`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  $("exportDialog").close();
+  showToast(t("exported", { format: isMarkdown ? "Markdown" : "JSON" }));
+}
+
+function setReadingContext(key, label, text) {
+  if (currentReadingContext.key !== key) chatConversations.current = [];
+  currentReadingContext = { key, label, text: String(text || "") };
+  if (chatScope === "current" && $("chatDrawer").classList.contains("open")) renderChat();
+}
+
+function updateListReadingContext() {
+  const text = stories.map((story, index) => `${index + 1}. ${story._translatedTitle || story.title}\n${t("originalTitle", { title: story.title })}\n${t("points", { count: story.score || 0 })}, ${t("comments", { count: story.descendants || 0 })}, ${safeDomain(story.url || "https://news.ycombinator.com")}`).join("\n\n");
+  setReadingContext(`list:${activeFeed}`, t("currentList"), text);
+}
+
+function openChat(preferredScope = activeScreen === "library" ? "library" : "current") {
+  $("chatDrawer").classList.add("open");
+  $("chatDrawer").setAttribute("aria-hidden", "false");
+  $("chatBackdrop").hidden = false;
+  $("chatFab").hidden = true;
+  setChatScope(preferredScope);
+  requestAnimationFrame(() => $("chatInput").focus());
+}
+
+function closeChat() {
+  $("chatDrawer").classList.remove("open");
+  $("chatDrawer").setAttribute("aria-hidden", "true");
+  $("chatBackdrop").hidden = true;
+  if (settings.setupCompleted) $("chatFab").hidden = false;
+}
+
+function setChatScope(scope) {
+  chatScope = scope === "library" ? "library" : "current";
+  $("chatScopeCurrent").classList.toggle("active", chatScope === "current");
+  $("chatScopeLibrary").classList.toggle("active", chatScope === "library");
+  renderChat();
+}
+
+function renderChat() {
+  $("chatContextLabel").textContent = chatScope === "library" ? t("myBookmarksCount", { count: t.number(libraryItems.length) }) : currentReadingContext.label;
+  $("chatInput").placeholder = chatScope === "library" ? t("organizePlaceholder") : t("askPlaceholder");
+  const thread = $("chatThread");
+  thread.replaceChildren();
+  chatConversations[chatScope].forEach((turn) => addChatBubble(turn.role === "assistant" ? "ai" : "user", turn.content));
+  const quick = $("chatQuick");
+  quick.replaceChildren();
+  const suggestions = (chatScope === "library" ? LIBRARY_QUICK_KEYS : currentQuickQuestionKeys()).map((key) => t(key));
+  suggestions.forEach((question) => {
     const chip = document.createElement("button");
     chip.type = "button";
     chip.textContent = question;
-    chip.addEventListener("click", () => ask(question));
+    chip.disabled = chatScope === "library" && libraryItems.length === 0;
+    chip.addEventListener("click", () => askFromChat(question));
     quick.append(chip);
   });
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    ask(input.value);
-  });
+  thread.scrollTop = thread.scrollHeight;
+}
 
-  panel.append(thread, quick, form);
-  host.append(panel);
+function currentQuickQuestionKeys() {
+  if (currentReadingContext.key.startsWith("article:")) return ARTICLE_QUICK_KEYS;
+  if (currentReadingContext.key.startsWith("discussion:")) return DISCUSSION_QUICK_KEYS;
+  return LIST_QUICK_KEYS;
+}
+
+function addChatBubble(role, content, extraClass = "") {
+  const bubble = document.createElement("div");
+  bubble.className = `chat-msg ${role}${extraClass ? ` ${extraClass}` : ""}`;
+  bubble.textContent = content;
+  $("chatThread").append(bubble);
+  return bubble;
+}
+
+async function askFromChat(question) {
+  const value = String(question || "").trim();
+  if (!value || chatBusy) return;
+  if (chatScope === "library" && !libraryItems.length) return showToast(t("libraryEmptyAI"));
+  if (!settings.apiKey) {
+    addChatBubble("ai", t("configureAI"), "error");
+    return;
+  }
+  chatBusy = true;
+  const scope = chatScope;
+  const conversation = chatConversations[scope];
+  $("chatInput").value = "";
+  autoSizeChatInput();
+  $("chatInput").disabled = true;
+  $("chatSend").disabled = true;
+  conversation.push({ role: "user", content: value });
+  addChatBubble("user", value);
+  const pending = addChatBubble("ai", "", "loading");
+  pending.innerHTML = "<i></i><i></i><i></i>";
+  $("chatThread").scrollTop = $("chatThread").scrollHeight;
+  try {
+    const context = scope === "library" ? buildLibraryContext(libraryItems) : currentReadingContext.text;
+    const answer = await sendAsk(context, conversation);
+    conversation.push({ role: "assistant", content: answer });
+    pending.classList.remove("loading");
+    pending.textContent = answer;
+  } catch (error) {
+    conversation.pop();
+    pending.classList.remove("loading");
+    pending.classList.add("error");
+    pending.textContent = t("answerFailed", { error: localizeBackendError(error.message) });
+  } finally {
+    chatBusy = false;
+    $("chatInput").disabled = false;
+    $("chatSend").disabled = false;
+    $("chatInput").focus();
+    $("chatThread").scrollTop = $("chatThread").scrollHeight;
+  }
+}
+
+function openLibrarySummary() {
+  openChat("library");
+  askFromChat(t("organizeLibraryPrompt"));
+}
+
+function autoSizeChatInput() {
+  const input = $("chatInput");
+  input.style.height = "auto";
+  input.style.height = `${Math.min(input.scrollHeight, 96)}px`;
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10240 ? 1 : 0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function showToast(message) {
+  clearTimeout(toastTimer);
+  $("toast").textContent = message;
+  $("toast").hidden = false;
+  toastTimer = setTimeout(() => { $("toast").hidden = true; }, 1800);
 }
 
 async function translateWithProgress(texts, label, maxItems) {
@@ -786,15 +1190,21 @@ function htmlToText(html) {
 }
 
 function safeDomain(url) {
-  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return "外部链接"; }
+  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return t("externalLink"); }
 }
 
 function relativeTime(timestamp) {
   const seconds = Math.max(1, Math.floor(Date.now() / 1000 - Number(timestamp || 0)));
-  if (seconds < 60) return "刚刚";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} 分钟前`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} 小时前`;
-  return `${Math.floor(seconds / 86400)} 天前`;
+  if (seconds < 60) return t("justNow");
+  if (seconds < 3600) return t("minutesAgo", { count: t.number(Math.floor(seconds / 60)) });
+  if (seconds < 86400) return t("hoursAgo", { count: t.number(Math.floor(seconds / 3600)) });
+  return t("daysAgo", { count: t.number(Math.floor(seconds / 86400)) });
+}
+
+function localizeBackendError(message) {
+  const text = String(message || "");
+  if (t.locale === "zh-CN" || t.locale === "zh-TW" || !/[\u3400-\u9fff]/.test(text)) return text;
+  return t("translateFailed");
 }
 
 function escapeText(text) {

@@ -1,12 +1,14 @@
 import { cacheKey, TranslationCache } from "./lib/cache.js";
 import { translateBatchResilient, askQuestion, PROMPT_VERSION } from "./lib/providers.js";
-import { DEFAULT_SETTINGS, normalizeSettings } from "./lib/settings.js";
+import { DEFAULT_SETTINGS, normalizeSettings, toContentSettings } from "./lib/settings.js";
 import { articlePageNeedsInteraction, validateArticleUrl } from "./lib/article.js";
+import { createTranslator } from "./lib/ui-i18n.js";
 
 const cache = new TranslationCache(chrome.storage.local);
 const inFlight = new Map();
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+chrome.storage.local.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" }).catch(() => {});
 
 chrome.runtime.onInstalled.addListener(async () => {
   await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
@@ -15,6 +17,11 @@ chrome.runtime.onInstalled.addListener(async () => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "GET_PUBLIC_SETTINGS") {
+    getPublicSettings().then((publicSettings) => sendResponse({ ok: true, settings: publicSettings }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
   if (message?.type === "TRANSLATE") {
     translateWithCache(message.texts).then((translations) => sendResponse({ ok: true, translations }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
@@ -61,12 +68,19 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 });
 
+async function getPublicSettings() {
+  const { settings: raw } = await chrome.storage.local.get("settings");
+  return toContentSettings(raw);
+}
+
 async function translateWithCache(inputTexts) {
   const texts = inputTexts.map((text) => String(text).trim());
   const { settings: raw } = await chrome.storage.local.get("settings");
   const settings = normalizeSettings(raw);
-  const model = settings.provider === "custom" ? settings.customModel : settings.model;
-  const keys = await Promise.all(texts.map((text) => cacheKey({ text, provider: settings.provider, model, promptVersion: PROMPT_VERSION })));
+  const model = settings.provider === "custom" ? `${settings.customEndpoint}|${settings.customModel}` : settings.model;
+  const language = settings.targetLanguage === "custom" ? `custom:${settings.customTargetLanguage}` : settings.targetLanguage;
+  const promptVersion = `${PROMPT_VERSION}:${language}`;
+  const keys = await Promise.all(texts.map((text) => cacheKey({ text, provider: settings.provider, model, promptVersion })));
   const output = new Array(texts.length);
   const misses = [];
 
@@ -252,10 +266,16 @@ async function extractActivePage() {
 
 async function applyActivePageTranslations(tabId, items) {
   if (!Number.isInteger(tabId) || !Array.isArray(items)) throw new Error("页内翻译数据无效");
+  const { settings: raw } = await chrome.storage.local.get("settings");
+  const settings = normalizeSettings(raw);
+  const t = createTranslator(settings);
   const results = await chrome.scripting.executeScript({
     target: { tabId },
     func: showInlineTranslations,
-    args: [items]
+    args: [items, {
+      lang: settings.targetLanguage === "custom" ? "" : settings.targetLanguage,
+      mark: t("translationMark"), status: t("translationShown"), hide: t("hide"), show: t("show"), remove: t("remove")
+    }]
   });
   const applied = results?.[0]?.result?.applied || 0;
   if (!applied) throw new Error("网页内容已变化，请重新点击翻译当前页");
@@ -300,7 +320,7 @@ function markTranslatablePageText() {
   return { items, finalUrl: location.href, title: document.title };
 }
 
-function showInlineTranslations(items) {
+function showInlineTranslations(items, labels) {
   document.querySelectorAll("[data-hncn-inline-translation],#hncn-translation-toolbar,#hncn-inline-translation-style").forEach((node) => node.remove());
   const style = document.createElement("style");
   style.id = "hncn-inline-translation-style";
@@ -360,7 +380,7 @@ function showInlineTranslations(items) {
     if (!source || typeof item.translation !== "string") continue;
     const translation = document.createElement("div");
     translation.dataset.hncnInlineTranslation = "";
-    translation.lang = "zh-CN";
+    if (labels.lang) translation.lang = labels.lang;
     translation.dir = "auto";
     const sourceStyle = getComputedStyle(source);
     const bodySize = Number.parseFloat(getComputedStyle(document.body).fontSize) || 16;
@@ -370,7 +390,7 @@ function showInlineTranslations(items) {
     const mark = document.createElement("span");
     mark.dataset.hncnTranslationMark = "";
     mark.setAttribute("aria-hidden", "true");
-    mark.textContent = "译";
+    mark.textContent = labels.mark;
     const text = document.createElement("span");
     text.dataset.hncnTranslationText = "";
     text.textContent = item.translation;
@@ -385,12 +405,12 @@ function showInlineTranslations(items) {
     toolbar.id = "hncn-translation-toolbar";
     toolbar.style.cssText = "all:initial;position:fixed;right:18px;bottom:18px;z-index:2147483647";
     const shadow = toolbar.attachShadow({ mode: "open" });
-    shadow.innerHTML = `<style>:host{color-scheme:light dark}.bar{align-items:center;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);background:rgba(255,255,255,.92);border:1px solid rgba(40,35,31,.12);border-radius:999px;box-shadow:0 8px 28px rgba(35,28,23,.16),0 1px 3px rgba(35,28,23,.08);color:#37322e;display:flex;font:12px/1.2 system-ui,-apple-system,"PingFang SC",sans-serif;gap:2px;padding:4px}.status{align-items:center;display:flex;gap:7px;padding:0 8px 0 7px;white-space:nowrap}.dot{background:#ff5c1a;border-radius:50%;box-shadow:0 0 0 3px rgba(255,92,26,.12);display:block;flex:none;height:6px;width:6px}button{background:transparent;border:0;border-radius:999px;color:#9d3d17;cursor:pointer;font:inherit;font-weight:600;padding:7px 9px}button:hover{background:rgba(255,92,26,.09)}#remove{color:#77706a}@media(prefers-color-scheme:dark){.bar{background:rgba(37,35,33,.9);border-color:rgba(255,255,255,.13);box-shadow:0 8px 30px rgba(0,0,0,.35);color:#eee8e2}button{color:#ffad84}#remove{color:#bbb3ac}}</style><div class="bar"><span class="status"><i class="dot"></i>译文已显示</span><button id="toggle">隐藏</button><button id="remove">移除</button></div>`;
+    shadow.innerHTML = `<style>:host{color-scheme:light dark}.bar{align-items:center;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);background:rgba(255,255,255,.92);border:1px solid rgba(40,35,31,.12);border-radius:999px;box-shadow:0 8px 28px rgba(35,28,23,.16),0 1px 3px rgba(35,28,23,.08);color:#37322e;display:flex;font:12px/1.2 system-ui,-apple-system,"PingFang SC",sans-serif;gap:2px;padding:4px}.status{align-items:center;display:flex;gap:7px;padding:0 8px 0 7px;white-space:nowrap}.dot{background:#ff5c1a;border-radius:50%;box-shadow:0 0 0 3px rgba(255,92,26,.12);display:block;flex:none;height:6px;width:6px}button{background:transparent;border:0;border-radius:999px;color:#9d3d17;cursor:pointer;font:inherit;font-weight:600;padding:7px 9px}button:hover{background:rgba(255,92,26,.09)}#remove{color:#77706a}@media(prefers-color-scheme:dark){.bar{background:rgba(37,35,33,.9);border-color:rgba(255,255,255,.13);box-shadow:0 8px 30px rgba(0,0,0,.35);color:#eee8e2}button{color:#ffad84}#remove{color:#bbb3ac}}</style><div class="bar"><span class="status"><i class="dot"></i>${escapeInlineHtml(labels.status)}</span><button id="toggle">${escapeInlineHtml(labels.hide)}</button><button id="remove">${escapeInlineHtml(labels.remove)}</button></div>`;
     shadow.getElementById("toggle").addEventListener("click", (event) => {
       const translations = [...document.querySelectorAll("[data-hncn-inline-translation]")];
       const hidden = translations.some((node) => node.style.display === "none");
       translations.forEach((node) => { node.style.setProperty("display", hidden ? "block" : "none", "important"); });
-      event.currentTarget.textContent = hidden ? "隐藏" : "显示";
+      event.currentTarget.textContent = hidden ? labels.hide : labels.show;
     });
     shadow.getElementById("remove").addEventListener("click", () => {
       document.querySelectorAll("[data-hncn-inline-translation],#hncn-inline-translation-style").forEach((node) => node.remove());
@@ -399,6 +419,10 @@ function showInlineTranslations(items) {
     document.documentElement.append(toolbar);
   }
   return { applied };
+
+  function escapeInlineHtml(value) {
+    return String(value).replace(/[&<>"']/g, (character) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[character]);
+  }
 }
 
 function waitForTab(tabId, timeoutMs) {

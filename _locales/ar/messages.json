@@ -1,0 +1,5 @@
+{
+  "extensionName": { "message": "مساعد قراءة Hacker News بالذكاء الاصطناعي" },
+  "extensionDescription": { "message": "ترجم واقرأ واحفظ ودوّن ونظّم Hacker News باللغة التي تختارها باستخدام API الذكاء الاصطناعي الخاص بك." },
+  "actionTitle": { "message": "فتح قارئ Hacker News بالذكاء الاصطناعي" }
+}

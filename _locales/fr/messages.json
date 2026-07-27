@@ -1,0 +1,5 @@
+{
+  "extensionName": { "message": "Assistant de lecture IA pour Hacker News" },
+  "extensionDescription": { "message": "Traduisez, lisez, enregistrez, annotez et organisez Hacker News dans la langue choisie avec votre propre API IA." },
+  "actionTitle": { "message": "Ouvrir le lecteur IA Hacker News" }
+}

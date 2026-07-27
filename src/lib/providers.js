@@ -1,8 +1,16 @@
-const SYSTEM_PROMPT = `你是专业的科技新闻翻译。将输入的英文内容准确、自然地翻译成简体中文。保留人名、产品名、公司名、代码和 URL；不要添加解释、序号或 Markdown。你会收到 JSON 字符串数组，必须只返回等长的 JSON 字符串数组。`;
+import { normalizeCustomEndpoint, resolveTargetLanguage } from "./settings.js";
 
-export const PROMPT_VERSION = "zh-cn-tech-v1";
+export const PROMPT_VERSION = "multilingual-tech-v2";
 
-const CHAT_SYSTEM_PROMPT = `你是嵌入在 Hacker News 中文阅读器里的助手。用户正在阅读下面这段内容，请始终用简体中文回答用户的问题：简洁、准确、口语化，必要时分点。优先基于所读内容作答；如果内容里没有相关信息，就明确说明，可以补充你已知的背景，但不要编造事实、数字或引用。`;
+function translationSystemPrompt(settings) {
+  const target = resolveTargetLanguage(settings).prompt;
+  return `You are a professional technology-news translator. Translate every input accurately and naturally into ${target}. Preserve names, product names, company names, code, and URLs. Do not add explanations, numbering, or Markdown. You will receive a JSON array of strings and must return only a JSON array with exactly the same number of strings.`;
+}
+
+function chatSystemPrompt(settings) {
+  const target = resolveTargetLanguage(settings).prompt;
+  return `You are the reading assistant embedded in a Hacker News reader. Always answer in ${target}. Be concise, accurate, and natural; use short lists when helpful. Base your answer primarily on the supplied reading context. If the context does not contain the answer, say so clearly. You may add relevant background knowledge, but never invent facts, numbers, or quotations.`;
+}
 
 export function assertApiKey(settings) {
   if (!settings.apiKey) throw new Error("请先在插件设置中填写 API Token");
@@ -42,27 +50,28 @@ export async function translateBatchResilient(texts, settings, fetchImpl = fetch
 export function buildRequest(texts, settings) {
   const provider = settings.provider;
   const bodyText = JSON.stringify(texts);
+  const system = translationSystemPrompt(settings);
   if (provider === "anthropic") {
     return jsonRequest("https://api.anthropic.com/v1/messages", {
-      model: settings.model, max_tokens: 4096, system: SYSTEM_PROMPT,
+      model: settings.model, max_tokens: 4096, system,
       messages: [{ role: "user", content: bodyText }]
     }, { "x-api-key": settings.apiKey, "anthropic-version": "2023-06-01" });
   }
   if (provider === "gemini") {
     const model = encodeURIComponent(settings.model);
     return jsonRequest(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(settings.apiKey)}`, {
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: "user", parts: [{ text: bodyText }] }],
       generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
     });
   }
   const endpoint = provider === "deepseek"
     ? "https://api.deepseek.com/chat/completions"
-    : provider === "custom" ? settings.customEndpoint : "https://api.openai.com/v1/chat/completions";
+    : provider === "custom" ? normalizeCustomEndpoint(settings.customEndpoint) : "https://api.openai.com/v1/chat/completions";
   if (!endpoint) throw new Error("请填写兼容接口地址");
   return jsonRequest(endpoint, {
     model: provider === "custom" ? settings.customModel : settings.model,
-    messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: bodyText }]
+    messages: [{ role: "system", content: system }, { role: "user", content: bodyText }]
   }, { Authorization: `Bearer ${settings.apiKey}` });
 }
 
@@ -127,8 +136,8 @@ export async function askQuestion(context, history, settings, fetchImpl = fetch)
 
 export function buildChatRequest(context, history, settings) {
   const provider = settings.provider;
-  const system = `${CHAT_SYSTEM_PROMPT}\n\n【正在阅读的内容】\n${String(context || "").slice(0, 12000)}`;
-  const turns = history.map((turn) => ({ role: turn.role, content: String(turn.content ?? "") }));
+  const system = `${chatSystemPrompt(settings)}\n\nREADING CONTEXT:\n${String(context || "").slice(0, 12000)}`;
+  const turns = history.slice(-12).map((turn) => ({ role: turn.role, content: String(turn.content ?? "") }));
   if (provider === "anthropic") {
     return jsonRequest("https://api.anthropic.com/v1/messages", {
       model: settings.model, max_tokens: 1024, system, messages: turns
@@ -144,7 +153,7 @@ export function buildChatRequest(context, history, settings) {
   }
   const endpoint = provider === "deepseek"
     ? "https://api.deepseek.com/chat/completions"
-    : provider === "custom" ? settings.customEndpoint : "https://api.openai.com/v1/chat/completions";
+    : provider === "custom" ? normalizeCustomEndpoint(settings.customEndpoint) : "https://api.openai.com/v1/chat/completions";
   if (!endpoint) throw new Error("请填写兼容接口地址");
   return jsonRequest(endpoint, {
     model: provider === "custom" ? settings.customModel : settings.model,

@@ -1,0 +1,5 @@
+{
+  "extensionName": { "message": "Hacker News AI 읽기 도우미" },
+  "extensionDescription": { "message": "내 AI API로 선택한 언어로 Hacker News를 번역하고 읽고 저장하고 메모하고 정리하세요." },
+  "actionTitle": { "message": "Hacker News AI 리더 열기" }
+}

@@ -1,5 +1,5 @@
 /* ============================================================
-   HN 中文助手 · 设置页
+   HN AI 阅读助手 · 设置页
    精致暖橙主题 · 亮色 / 暗色双模式
    ============================================================ */
 
@@ -37,6 +37,8 @@
   background: var(--bg);
 }
 
+i[data-i18n] { font-style: normal; }
+
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #141317;
@@ -61,6 +63,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
 main { margin: 46px auto; max-width: 650px; padding: 0 20px 70px; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -78,7 +81,7 @@ h2 small { background: var(--accent-soft); border: 1px solid var(--accent-line);
 
 /* —— 表单控件 —— */
 label:not(.topic) { color: var(--text); display: block; font-size: 12px; font-weight: 650; }
-input[type="password"], select {
+input[type="password"], input[type="text"], input[type="url"], select {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text);
   display: block; font: inherit; margin-top: 8px; outline: 0; padding: 11px 12px; width: 100%;
   transition: border-color .16s var(--ease), box-shadow .16s var(--ease);
@@ -87,12 +90,16 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: var(--ring)
 
 /* —— 步骤 —— */
 .step { align-items: flex-start; display: grid; gap: 14px; grid-template-columns: 28px 1fr; margin: 3px 0 20px; }
+.step > div { min-width: 0; }
 .step > span { align-items: center; background: var(--accent); border-radius: 50%; box-shadow: 0 3px 9px rgb(255 92 26 / .3); color: #fff; display: flex; font-size: 12px; font-weight: 750; height: 28px; justify-content: center; }
 .guide { background: var(--accent-soft); border: 1px solid var(--accent-line); border-radius: var(--r-sm); color: var(--accent-ink); font-size: 12px; line-height: 1.55; margin: 0 0 20px 42px; padding: 12px 14px; }
 .guide strong { display: block; margin-bottom: 4px; }
 .guide ol { margin: 3px 0; padding-left: 19px; }
 .guide p { color: var(--text-muted); margin: 6px 0 0; }
 .guide a { color: var(--accent-ink); font-weight: 700; }
+.field-stack { display: grid; gap: 14px; }
+.custom-fields { background: var(--accent-soft); border: 1px solid var(--accent-line); border-radius: var(--r-sm); display: grid; gap: 12px; grid-template-columns: 1fr 1fr; margin: -5px 0 18px 42px; padding: 14px; }
+.custom-fields p { color: var(--text-muted); font-size: 10.5px; grid-column: 1 / -1; line-height: 1.5; margin: -2px 0 0; }
 
 .privacy, .hint { color: var(--text-muted); font-size: 11px; line-height: 1.5; margin-bottom: 0; }
 .privacy { margin-left: 42px; }
@@ -119,7 +126,8 @@ footer { align-items: center; bottom: 0; display: flex; gap: 14px; padding: 12px
 @media (max-width: 560px) {
   main { margin-top: 26px; }
   .topics { grid-template-columns: repeat(2, 1fr); }
-  .guide, .privacy { margin-left: 0; }
+  .guide, .privacy, .custom-fields { margin-left: 0; }
+  .custom-fields { grid-template-columns: 1fr; }
   section { padding: 20px; }
 }
 @media (prefers-reduced-motion: reduce) {
