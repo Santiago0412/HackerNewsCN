@@ -346,13 +346,17 @@ function showInlineTranslations(items, labels) {
       line-height:1.72!important;
       margin:.5em 0 1em!important;
       padding:.62em .85em .66em .72em!important;
-      text-align:left!important;
+      text-align:start!important;
       text-decoration:none!important;
+      text-orientation:mixed!important;
       text-transform:none!important;
+      unicode-bidi:normal!important;
       white-space:normal!important;
+      writing-mode:horizontal-tb!important;
     }
     [data-hncn-translation-mark]{
       align-items:center!important;
+      align-self:start!important;
       background:rgba(255,92,26,.11)!important;
       border:1px solid rgba(255,92,26,.2)!important;
       border-radius:999px!important;
@@ -362,10 +366,11 @@ function showInlineTranslations(items, labels) {
       height:20px!important;
       justify-content:center!important;
       letter-spacing:0!important;
-      margin-top:.18em!important;
+      margin-top:calc((1.72 * var(--hncn-source-size, 16px) - 20px) / 2)!important;
       width:20px!important;
+      writing-mode:horizontal-tb!important;
     }
-    [data-hncn-translation-text]{display:block!important;min-width:0!important;white-space:pre-wrap!important}
+    [data-hncn-translation-text]{display:block!important;min-width:0!important;overflow-wrap:anywhere!important;text-orientation:mixed!important;unicode-bidi:normal!important;white-space:pre-wrap!important;word-break:break-word!important;writing-mode:horizontal-tb!important}
     @media(prefers-color-scheme:dark){
       [data-hncn-inline-translation]{background:linear-gradient(90deg,rgba(255,122,61,.1),rgba(255,122,61,.025) 72%,transparent)!important;border-left-color:rgba(255,135,78,.62)!important}
       [data-hncn-translation-mark]{background:rgba(255,122,61,.16)!important;border-color:rgba(255,160,112,.22)!important;color:#ffae86!important}
@@ -378,7 +383,7 @@ function showInlineTranslations(items, labels) {
   for (const item of items) {
     const source = document.querySelector(`[data-hncn-translate-id="${CSS.escape(String(item.id))}"]`);
     if (!source || typeof item.translation !== "string") continue;
-    const translation = document.createElement("div");
+    const translation = document.createElement("span");
     translation.dataset.hncnInlineTranslation = "";
     if (labels.lang) translation.lang = labels.lang;
     translation.dir = "auto";
@@ -395,7 +400,9 @@ function showInlineTranslations(items, labels) {
     text.dataset.hncnTranslationText = "";
     text.textContent = item.translation;
     translation.append(mark, text);
-    if (source.matches("li")) source.append(translation);
+    // Keep translations in the source's layout slot instead of creating a new grid/flex item.
+    const parentDisplay = getComputedStyle(source.parentElement).display;
+    if (source.matches("li") || /^(inline-)?(grid|flex)$/.test(parentDisplay)) source.append(translation);
     else source.insertAdjacentElement("afterend", translation);
     applied++;
   }
@@ -409,7 +416,7 @@ function showInlineTranslations(items, labels) {
     shadow.getElementById("toggle").addEventListener("click", (event) => {
       const translations = [...document.querySelectorAll("[data-hncn-inline-translation]")];
       const hidden = translations.some((node) => node.style.display === "none");
-      translations.forEach((node) => { node.style.setProperty("display", hidden ? "block" : "none", "important"); });
+      translations.forEach((node) => { node.style.setProperty("display", hidden ? "grid" : "none", "important"); });
       event.currentTarget.textContent = hidden ? labels.hide : labels.show;
     });
     shadow.getElementById("remove").addEventListener("click", () => {

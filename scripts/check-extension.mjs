@@ -4,7 +4,8 @@ import { spawnSync } from "node:child_process";
 const manifest = JSON.parse(await readFile("manifest.json", "utf8"));
 if (manifest.manifest_version !== 3) throw new Error("manifest must use version 3");
 if (manifest.default_locale) {
-  const localeDirectories = await readdir("_locales");
+  const localeDirectories = (await readdir("_locales", { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory()).map((entry) => entry.name);
   if (!localeDirectories.includes(manifest.default_locale)) throw new Error("default_locale must have a matching _locales directory");
   for (const locale of localeDirectories) JSON.parse(await readFile(`_locales/${locale}/messages.json`, "utf8"));
 }
