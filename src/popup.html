@@ -16,20 +16,24 @@
     </div>
   </header>
   <section id="onboarding" hidden>
-    <div class="welcome"><span data-i18n="welcome">Welcome</span><b data-i18n="setupTitle">Complete a quick setup</b><p data-i18n="setupDescription">Choose a target language and model.</p></div>
-    <label><span>1　<i data-i18n="translateTo">Translate into</i></span><select id="onboardingLanguage"></select></label>
-    <label id="onboardingCustomLanguageField" class="nested-field" hidden><span data-i18n="customLanguage">Target language name</span><input id="onboardingCustomLanguage" type="text" maxlength="80" data-i18n-placeholder="customLanguagePlaceholder"></label>
-    <label><span>2　<i data-i18n="chooseModel">Choose model service</i></span><select id="onboardingModel"></select></label>
-    <div id="onboardingCustomProvider" class="onboarding-custom" hidden>
-      <label><span data-i18n="apiUrl">API endpoint</span><input id="onboardingEndpoint" type="url" inputmode="url" autocomplete="url" data-i18n-placeholder="endpointPlaceholder"></label>
-      <label><span data-i18n="modelName">Model name</span><input id="onboardingCustomModel" type="text" autocomplete="off" data-i18n-placeholder="modelPlaceholder"></label>
-      <p data-i18n="endpointHint">Enter the complete OpenAI-compatible endpoint.</p>
+    <div class="onboarding-fields">
+      <div class="welcome"><span data-i18n="welcome">Welcome</span><b data-i18n="setupTitle">Complete a quick setup</b><p data-i18n="setupDescription">Choose a target language and model.</p></div>
+      <label><span>1　<i data-i18n="translateTo">Translate into</i></span><select id="onboardingLanguage"></select></label>
+      <label id="onboardingCustomLanguageField" class="nested-field" hidden><span data-i18n="customLanguage">Target language name</span><input id="onboardingCustomLanguage" type="text" maxlength="80" data-i18n-placeholder="customLanguagePlaceholder"></label>
+      <label><span>2　<i data-i18n="chooseModel">Choose model service</i></span><select id="onboardingModel"></select></label>
+      <div id="onboardingCustomProvider" class="onboarding-custom" hidden>
+        <label><span data-i18n="apiUrl">API endpoint</span><input id="onboardingEndpoint" type="url" inputmode="url" autocomplete="url" data-i18n-placeholder="endpointPlaceholder"></label>
+        <label><span data-i18n="modelName">Model name</span><input id="onboardingCustomModel" type="text" autocomplete="off" data-i18n-placeholder="modelPlaceholder"></label>
+        <p data-i18n="endpointHint">Enter the complete OpenAI-compatible endpoint.</p>
+      </div>
+      <div id="onboardingGuide" class="key-guide"></div>
+      <label><span>3　<i data-i18n="apiKey">Paste API key</i></span><input id="onboardingKey" type="password" autocomplete="off" data-i18n-placeholder="apiKeyPlaceholder"></label>
+      <fieldset><legend>4　<i data-i18n="interests">Topics you like</i> <small data-i18n="optionalAll">Optional</small></legend><div id="onboardingTopics" class="onboarding-topics"></div></fieldset>
     </div>
-    <div id="onboardingGuide" class="key-guide"></div>
-    <label><span>3　<i data-i18n="apiKey">Paste API key</i></span><input id="onboardingKey" type="password" autocomplete="off" data-i18n-placeholder="apiKeyPlaceholder"></label>
-    <fieldset><legend>4　<i data-i18n="interests">Topics you like</i> <small data-i18n="optionalAll">Optional</small></legend><div id="onboardingTopics" class="onboarding-topics"></div></fieldset>
-    <button id="startReading" class="primary" data-i18n="saveStart">Save and start reading</button>
-    <div id="onboardingError" role="alert"></div>
+    <div class="onboarding-actions">
+      <button id="startReading" class="primary" data-i18n="saveStart">Save and start reading</button>
+      <div id="onboardingError" role="alert"></div>
+    </div>
   </section>
   <nav id="feeds" data-i18n-aria-label="newsCategories">
     <button data-feed="favorites" data-i18n="feedFollowing">Following</button>

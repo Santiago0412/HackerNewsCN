@@ -121,15 +121,15 @@ button { cursor: pointer; }
 a { color: var(--accent-ink); }
 
 /* 滚动条 */
-main::-webkit-scrollbar, #onboarding::-webkit-scrollbar { width: 9px; }
-main::-webkit-scrollbar-thumb, #onboarding::-webkit-scrollbar-thumb {
+main::-webkit-scrollbar, .onboarding-fields::-webkit-scrollbar { width: 9px; }
+main::-webkit-scrollbar-thumb, .onboarding-fields::-webkit-scrollbar-thumb {
   background: rgb(var(--shadow-rgb) / .16); background-clip: padding-box;
   border: 2px solid transparent; border-radius: var(--r-pill);
 }
-main::-webkit-scrollbar-thumb:hover, #onboarding::-webkit-scrollbar-thumb:hover { background: rgb(var(--shadow-rgb) / .3); background-clip: padding-box; }
+main::-webkit-scrollbar-thumb:hover, .onboarding-fields::-webkit-scrollbar-thumb:hover { background: rgb(var(--shadow-rgb) / .3); background-clip: padding-box; }
 @media (prefers-color-scheme: dark) {
-  main::-webkit-scrollbar-thumb, #onboarding::-webkit-scrollbar-thumb { background: rgb(255 255 255 / .12); background-clip: padding-box; }
-  main::-webkit-scrollbar-thumb:hover, #onboarding::-webkit-scrollbar-thumb:hover { background: rgb(255 255 255 / .22); background-clip: padding-box; }
+  main::-webkit-scrollbar-thumb, .onboarding-fields::-webkit-scrollbar-thumb { background: rgb(255 255 255 / .12); background-clip: padding-box; }
+  main::-webkit-scrollbar-thumb:hover, .onboarding-fields::-webkit-scrollbar-thumb:hover { background: rgb(255 255 255 / .22); background-clip: padding-box; }
 }
 
 /* —— 顶栏 —— */
@@ -246,14 +246,17 @@ footer button { background: transparent; border: 0; border-radius: var(--r-xs); 
 footer button:hover { background: var(--accent-soft); }
 
 /* —— 首次引导 —— */
-#onboarding { background: var(--bg); flex: 1; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; padding: 22px 18px 28px; }
+#onboarding { background: var(--bg); display: flex; flex: 1; flex-direction: column; min-height: 0; }
 #onboarding[hidden] { display: none; }
+#onboarding:not([hidden]) ~ #main { display: none; }
+.onboarding-fields { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; padding: 22px 18px 16px; }
+.onboarding-actions { background: var(--bg); border-top: 1px solid var(--border); flex-shrink: 0; padding: 12px 18px; }
 .welcome { margin-bottom: 22px; }
 .welcome > span { color: var(--accent-ink); display: block; font-size: 10px; font-weight: 700; letter-spacing: .09em; margin-bottom: 6px; text-transform: uppercase; }
 .welcome b { display: block; font-size: 21px; font-weight: 750; letter-spacing: -.5px; }
 .welcome p { color: var(--text-muted); font-size: 12px; line-height: 1.55; margin: 7px 0 0; }
 
-#onboarding > label { color: var(--text); display: block; font-size: 11px; font-weight: 650; margin: 16px 0; }
+.onboarding-fields > label { color: var(--text); display: block; font-size: 11px; font-weight: 650; margin: 16px 0; }
 #onboarding select, #onboarding input[type="password"], #onboarding input[type="text"], #onboarding input[type="url"] {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); color: var(--text);
   display: block; margin-top: 8px; outline: 0; padding: 11px 12px; width: 100%;
