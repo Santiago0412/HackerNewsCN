@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildRequest, buildChatRequest, askQuestion, parseTranslations, translateBatch, translateBatchResilient } from "../src/lib/providers.js";
 
+const INSTALL_ID = "123e4567-e89b-42d3-a456-426614174000";
+
 test("builds provider-specific request formats", () => {
   const common = { apiKey: "secret", model: "example" };
   const openai = buildRequest(["Hello"], { ...common, provider: "openai" });
@@ -127,6 +129,39 @@ test("askQuestion returns the model answer and surfaces API errors", async () =>
   assert.equal(await askQuestion("正文", history, settings, okFetch), "这是回答。");
   const errFetch = async () => new Response(JSON.stringify({ error: { message: "nope" } }), { status: 429 });
   await assert.rejects(() => askQuestion("正文", history, settings, errFetch), /频繁|429/);
+});
+
+test("hosted deepseek calls the gateway with an install id and no user key", () => {
+  const settings = { provider: "deepseek", apiKey: "", useHostedGateway: true, model: "deepseek-v4-flash", installId: INSTALL_ID };
+  const request = buildRequest(["Hello"], settings);
+  assert.equal(request.url, "https://hncn-gateway.example.workers.dev/v1/chat/completions");
+  assert.equal(request.options.headers["X-Install-Id"], INSTALL_ID);
+  assert.equal(request.options.headers.Authorization, undefined);
+  assert.equal(JSON.parse(request.options.body).model, "deepseek-v4-flash");
+  const chat = buildChatRequest("ctx", [{ role: "user", content: "hi" }], settings);
+  assert.equal(chat.url, request.url);
+  assert.equal(chat.options.headers["X-Install-Id"], INSTALL_ID);
+  assert.equal(chat.options.headers.Authorization, undefined);
+});
+
+test("deepseek with a user key stays on the official API", () => {
+  const request = buildRequest(["Hello"], { provider: "deepseek", apiKey: "user-key", model: "deepseek-v4-flash", useHostedGateway: true });
+  assert.equal(request.url, "https://api.deepseek.com/chat/completions");
+  assert.equal(request.options.headers.Authorization, "Bearer user-key");
+  assert.equal(request.options.headers["X-Install-Id"], undefined);
+});
+
+test("hosted translation works without an api key and explains a daily quota error", async () => {
+  const settings = { provider: "deepseek", apiKey: "", model: "deepseek-v4-flash", installId: INSTALL_ID };
+  const okFetch = async (url, options) => {
+    assert.equal(url, "https://hncn-gateway.example.workers.dev/v1/chat/completions");
+    assert.equal(options.headers.Authorization, undefined);
+    assert.equal(options.headers["X-Install-Id"], INSTALL_ID);
+    return new Response(JSON.stringify({ choices: [{ message: { content: '["你好"]' } }] }), { status: 200 });
+  };
+  assert.deepEqual(await translateBatch(["Hello"], settings, okFetch), ["你好"]);
+  const limited = async () => new Response(JSON.stringify({ error: { message: "Daily free quota exceeded", code: "daily_quota_exceeded" } }), { status: 429 });
+  await assert.rejects(() => translateBatch(["Hello"], settings, limited), /今日免费额度已用完/);
 });
 
 test("askQuestion rejects empty history and non-ASCII keys before fetch", async () => {

@@ -1,0 +1,4 @@
+# Copy to worker/.dev.vars for `wrangler dev`. That file is gitignored.
+# Leave this example empty. Never commit a real DeepSeek key.
+# Production uses `npx wrangler secret put DEEPSEEK_API_KEY` instead.
+DEEPSEEK_API_KEY=

@@ -31,12 +31,12 @@
 
 **中文：**
 ```
-用你自己的大模型 API 在侧边栏阅读、收藏、记笔记并整理 Hacker News。数据只存本地，可随时导出。
+用每日约 ¥0.10 的托管额度，或你自己的大模型 Key，在侧边栏阅读 Hacker News。收藏在本地，可导出。
 ```
 
 **English:**
 ```
-Read, save, annotate, and organize Hacker News with your own LLM API key. Local-first and exportable.
+Read Hacker News with a small daily quota or your own LLM key. Bookmarks stay local and exportable.
 ```
 
 ---
@@ -45,7 +45,7 @@ Read, save, annotate, and organize Hacker News with your own LLM API key. Local-
 
 **中文：**
 ```
-Hacker News AI 阅读助手是一个无需注册、无需账号的浏览器扩展。你可以选择目标语言，并用自己的大模型 API Key 阅读和整理 Hacker News。Key 只保存在你本机，不经过开发者服务器。
+Hacker News AI 阅读助手是一个无需注册、无需账号的浏览器扩展。你可以选择目标语言阅读和整理 Hacker News。默认使用托管 DeepSeek，不用粘贴 API Key，每台安装每天约 ¥0.10 额度；额度用完后可改用自己的 Key，或等到明天（UTC）。自备的 Key 只保存在你本机。仓库里的网关地址是占位符，不代表已有公开服务。
 
 主要功能
 • 侧边栏阅读：点击图标即可在侧边栏浏览热门、最新、最佳、问答、作品，无需先打开 HN 网页
@@ -58,21 +58,21 @@ Hacker News AI 阅读助手是一个无需注册、无需账号的浏览器扩�
 • 随时问 AI：浮动入口可针对当前内容提问，也可按主题整理全部收藏与笔记
 • 随时导出：收藏与笔记可导出为 Markdown 或 JSON
 • 兴趣过滤：「关注」标签按人工智能、编程、创业、安全、科学、硬件、设计、文化等话题突出内容
-• 多服务商：OpenAI、Anthropic、DeepSeek、Google Gemini 自动配置 API 地址；选择“其他”时可填写 OpenAI 兼容 API 地址与模型名
+• 多服务商：默认托管 DeepSeek（无用户 Key，每日额度约 ¥0.10）。也可以自备 OpenAI、Anthropic、DeepSeek、Google Gemini 的 Key；选择“其他”时可填写 OpenAI 兼容 API 地址与模型名
 • 亮色 / 暗色主题，跟随系统
 • 本地缓存翻译结果，避免重复消耗额度
 
 隐私优先
-• 无后台服务器，开发者不收集任何数据
-• API Key 只写入本机 chrome.storage.local，仅随翻译请求直接发送给你选择的模型服务商
+• 托管模式不收集用户 API Key。随机 installId 和当次文本发给额度网关，再转到 DeepSeek；网关只保存额度计数，不保存提示词
+• 自备 Key 只写入本机 chrome.storage.local，仅随请求直接发送给你选择的模型服务商，不经过网关
 • 收藏、笔记和有限正文摘录也只保存在本机，不同步到 Google 账号
-• 只有你主动提问或点击“AI 整理”时，所选内容才会发给你配置的模型服务商
+• 只有你主动翻译、提问或点击“AI 整理”时，所选内容才会发出
 • 卸载扩展即清除全部本地设置、收藏、笔记与缓存
 ```
 
 **English:**
 ```
-Hacker News AI Reading Assistant is a no-account browser extension for reading and organizing Hacker News in your chosen target language using your own LLM API key. Your key stays on your device and never passes through the developer's server.
+Hacker News AI Reading Assistant is a no-account browser extension for reading and organizing Hacker News in your chosen target language. The default path uses a hosted DeepSeek quota of about ¥0.10 per install per day and does not ask for an API key. When that quota is used up, paste your own key or wait until the next UTC day. A key you paste stays on your device. The gateway host in the package is a placeholder, not a live public URL.
 
 Features
 • Side-panel reading: browse Top, New, Best, Ask, and Show without opening the HN site first
@@ -85,15 +85,15 @@ Features
 • Ask AI anywhere: use the floating assistant for the current content or organize saved reading by topic
 • Export anytime: download bookmarks and notes as Markdown or JSON
 • Interest filter: a "Following" tab surfaces AI, programming, startups, security, science, hardware, design, and culture
-• Providers: automatic API endpoints for OpenAI, Anthropic, DeepSeek, and Google Gemini; custom endpoint and model fields for OpenAI-compatible services
+• Providers: hosted DeepSeek by default (no user key, about ¥0.10 per day). You can instead paste your own OpenAI, Anthropic, DeepSeek, or Google Gemini key. Custom endpoint and model fields remain available for OpenAI-compatible services
 • Light / dark theme, follows the system
 • Local translation cache to avoid spending quota twice
 
 Privacy first
-• No backend server; the developer collects nothing
-• Your API key is stored only in local chrome.storage.local and sent directly to your chosen provider with translation requests
+• Hosted mode collects no user API key. A random install id and the current text go to the quota gateway, then to DeepSeek. The gateway stores spend counters, not prompts
+• A key you paste is stored only in local chrome.storage.local and is sent directly to your chosen provider, not through the gateway
 • Bookmarks, notes, and limited excerpts stay local and do not sync to your Google account
-• Selected content is sent to your model provider only when you ask a question or request AI organization
+• Selected content is sent only when you translate, ask a question, or request AI organization
 • Uninstalling removes all local settings, bookmarks, notes, and cache
 ```
 
@@ -102,7 +102,7 @@ Privacy first
 ## 4. 单一用途声明 Single purpose
 
 ```
-Help users read, translate, save, annotate, and organize Hacker News content — and web pages they explicitly open — using their own LLM API key.
+Help users read, translate, save, annotate, and organize Hacker News content — and web pages they explicitly open — using a limited shared daily quota or their own LLM API key.
 ```
 
 ---
@@ -112,12 +112,13 @@ Help users read, translate, save, annotate, and organize Hacker News content —
 
 | 权限 Permission | 理由 Justification |
 |---|---|
-| `storage` | Store the user's model choice, API key, preferences, bookmarks, notes, and translation cache locally. |
+| `storage` | Store the user's model choice, optional API key, random install id, preferences, bookmarks, notes, and translation cache locally. |
 | `unlimitedStorage` | Store translation caches, bookmarks, notes, and limited excerpts locally without the fixed default 10 MB quota. |
 | `sidePanel` | The extension's entire reading UI runs in the browser side panel. |
 | `scripting` | Inject translations in the selected target language back into the current tab when the user clicks "Translate this page." |
 | Host permission — `hacker-news.firebaseio.com` | Fetch Hacker News stories, threads, and comments (official HN API). |
-| Host permissions — `api.openai.com`, `api.anthropic.com`, `api.deepseek.com`, `generativelanguage.googleapis.com` | Send text to the mainstream LLM provider selected by the user to obtain translations in the selected target language. |
+| Host permissions — `api.openai.com`, `api.anthropic.com`, `api.deepseek.com`, `generativelanguage.googleapis.com` | Send text to the mainstream LLM provider selected by the user when they paste their own API key. |
+| Host permission — quota gateway origin (`hncn-gateway.example.workers.dev` until replaced with the deployed host) | In hosted mode, send text and a random install id to the operator's Worker. The Worker holds the DeepSeek key and enforces the daily cap. This placeholder host is not a live public service. Unused when the user pastes their own key. |
 | Optional host permission — `https://*/*`, `http://*/*` | Requested on demand for the exact relevant origin when the user reads a linked article, translates the current page, or configures a custom model API endpoint. Used to fetch selected page text or call the endpoint the user entered. Not requested at install time. |
 
 ---
@@ -134,7 +135,7 @@ Help users read, translate, save, annotate, and organize Hacker News content —
 
 - 本扩展**收集/处理**的数据类型：
   - `Website content`：用户主动读取或翻译的网页正文
-  - `Authentication information`：用户提供的模型 API Key，仅本地保存，并只发送给对应模型服务商进行鉴权
+  - `Authentication information`：仅在用户选择自备 Key 时，由用户提供的模型 API Key，仅本地保存，并只发送给对应模型服务商进行鉴权。托管模式不收集用户 API Key；随机 installId 只用于额度网关识别安装
   - `Personal communications` / `User-generated content`：用户主动输入的 AI 问题与阅读笔记；笔记默认仅本地保存，问题及所选上下文仅在用户发送或点击“AI 整理”时传给所选模型服务商
 - 勾选三项合规声明：
   - ✅ 不将数据出售或转让给第三方（用户核心功能所需的传输除外）
@@ -142,7 +143,7 @@ Help users read, translate, save, annotate, and organize Hacker News content —
   - ✅ 不用于判定信用或放贷
 - 说明文字（可填入 "How is this data used"）：
 ```
-API keys, bookmarks, notes, and preferences are stored locally and never sent to the developer. Text is sent only to the user-selected LLM provider to produce translations or answer a question the user explicitly submits. Bookmark and note summaries are sent only when the user asks the assistant to organize saved reading. Web page content is fetched only for pages the user actively opens. No data is collected on any developer server.
+In hosted mode the extension sends text and a random install id to the operator's quota gateway, which forwards the request to DeepSeek and stores only a daily spend counter. No user API key is collected in that mode. The packaged gateway host is a placeholder until the operator deploys one. If the user pastes their own API key, that key and the text go directly to the provider they chose and are not sent to the gateway. Bookmarks, notes, and preferences stay on the device. Web page content is fetched only for pages the user actively opens.
 ```
 
 > 如果后台当前只显示 `Personal communications` 而没有单独的 `User-generated content`，勾选 `Personal communications`；若两项都显示，则两项都勾选。Google 要求本机处理的数据也必须披露。
