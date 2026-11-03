@@ -55,6 +55,9 @@ test("first-run save stays visible while fields scroll, and saving opens the rea
             };
             checkButton();
             check(win.getComputedStyle(get("main")).display === "none", "Empty reader must not take onboarding space");
+            check(/0\.10/.test(get("onboardingGuide").textContent), "Default hosted setup must explain the daily quota");
+            get("onboardingModel").value = "0";
+            get("onboardingModel").dispatchEvent(new win.Event("change"));
             button.click();
             check(get("onboardingError").textContent.length > 0, "Missing key must show validation next to save");
             checkButton();
@@ -71,12 +74,13 @@ test("first-run save stays visible while fields scroll, and saving opens the rea
             check(Math.abs(button.getBoundingClientRect().top - top) < 1, "Save must stay fixed while fields scroll");
             get("onboardingModel").value = "2";
             get("onboardingModel").dispatchEvent(new win.Event("change"));
-            get("onboardingKey").value = "test-only-key";
+            get("onboardingKey").value = "";
+            check(/0\.10/.test(get("onboardingGuide").textContent), "Hosted DeepSeek must explain the daily quota");
             button.click();
             await waitFor(() => get("onboarding").hidden);
             const saved = await win.chrome.storage.local.get("settings");
-            check(saved.settings.setupCompleted && saved.settings.apiKey === "test-only-key", "Save must persist setup");
-            check(saved.settings.provider === "deepseek", "Save must keep the selected provider");
+            check(saved.settings.setupCompleted && saved.settings.apiKey === "", "Hosted save must persist without a key");
+            check(saved.settings.provider === "deepseek" && saved.settings.useHostedGateway === true, "Save must keep hosted DeepSeek");
             check(win.getComputedStyle(get("main")).display !== "none" && get("main").getBoundingClientRect().height > 0, "Reader must return after saving");
             check(!get("feeds").hidden, "Reader navigation must return after saving");
           }

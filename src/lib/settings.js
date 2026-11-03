@@ -1,9 +1,15 @@
+// Placeholder origin only. Not a live gateway. After `wrangler deploy`, replace
+// this and the matching manifest.json host_permissions entry with the real host.
+// Never put an API key here.
+export const HOSTED_GATEWAY_URL = "https://hncn-gateway.example.workers.dev";
+
 export const DEFAULT_SETTINGS = Object.freeze({
   targetLanguage: "zh-CN",
   customTargetLanguage: "",
-  provider: "openai",
+  provider: "deepseek",
   apiKey: "",
-  model: "gpt-5-mini",
+  model: "deepseek-v4-flash",
+  useHostedGateway: true,
   customEndpoint: "",
   customModel: "",
   autoTranslateTitles: true,
@@ -51,11 +57,24 @@ export function normalizeSettings(value = {}) {
   merged.customTargetLanguage = cleanText(merged.customTargetLanguage).slice(0, 80);
   merged.customEndpoint = cleanText(merged.customEndpoint);
   merged.customModel = cleanText(merged.customModel).slice(0, 200);
+  merged.apiKey = cleanText(merged.apiKey);
+  merged.useHostedGateway = merged.useHostedGateway !== false;
   merged.topics = Array.isArray(merged.topics) ? [...new Set(merged.topics)] : [];
   merged.cacheDays = clampNumber(merged.cacheDays, 1, 365, DEFAULT_SETTINGS.cacheDays);
   merged.maxCacheEntries = clampNumber(merged.maxCacheEntries, 100, 20000, DEFAULT_SETTINGS.maxCacheEntries);
   if (!PROVIDERS[merged.provider]) merged.provider = DEFAULT_SETTINGS.provider;
+  if (merged.provider === "deepseek" && !merged.model) merged.model = PROVIDERS.deepseek.model;
   return merged;
+}
+
+export function usesHostedGateway(value = {}) {
+  const settings = normalizeSettings(value);
+  return settings.useHostedGateway && settings.provider === "deepseek" && !settings.apiKey;
+}
+
+export function hasModelAccess(value = {}) {
+  const settings = normalizeSettings(value);
+  return usesHostedGateway(settings) || Boolean(settings.apiKey);
 }
 
 export function validateConfiguration(value = {}) {

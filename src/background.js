@@ -1,5 +1,6 @@
 import { cacheKey, TranslationCache } from "./lib/cache.js";
 import { translateBatchResilient, askQuestion, PROMPT_VERSION } from "./lib/providers.js";
+import { ensureInstallId } from "./lib/install-id.js";
 import { DEFAULT_SETTINGS, normalizeSettings, toContentSettings } from "./lib/settings.js";
 import { articlePageNeedsInteraction, validateArticleUrl } from "./lib/article.js";
 import { createTranslator } from "./lib/ui-i18n.js";
@@ -9,11 +10,13 @@ const inFlight = new Map();
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 chrome.storage.local.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" }).catch(() => {});
+ensureInstallId(chrome.storage.local).catch(() => {});
 
 chrome.runtime.onInstalled.addListener(async () => {
   await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
   const current = await chrome.storage.local.get("settings");
   if (!current.settings) await chrome.storage.local.set({ settings: DEFAULT_SETTINGS });
+  await ensureInstallId(chrome.storage.local);
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

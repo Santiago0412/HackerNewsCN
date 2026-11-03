@@ -264,6 +264,7 @@ footer button:hover { background: var(--accent-soft); }
 }
 #onboarding select:focus, #onboarding input:focus { border-color: var(--accent); box-shadow: var(--ring); }
 .key-guide { background: var(--accent-soft); border: 1px solid var(--accent-line); border-radius: var(--r-md); color: var(--accent-ink); font-size: 10px; line-height: 1.55; padding: 10px 12px; }
+#onboardingKeyOptional { color: var(--text-muted); font-weight: 400; margin-left: 6px; }
 .key-guide a { color: var(--accent-ink); font-weight: 700; }
 .nested-field { margin-left: 14px !important; }
 .onboarding-custom { background: var(--accent-soft); border: 1px solid var(--accent-line); border-radius: var(--r-md); display: grid; gap: 10px; margin: -6px 0 14px; padding: 11px 12px; }

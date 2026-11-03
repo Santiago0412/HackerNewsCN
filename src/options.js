@@ -43,6 +43,7 @@ async function init() {
   updateGuide();
   $("targetLanguage").addEventListener("change", updateLanguageFields);
   $("modelChoice").addEventListener("change", updateGuide);
+  $("apiKey").addEventListener("input", updatePrivacyNote);
   $("toggleToken").addEventListener("click", () => $("apiKey").type = $("apiKey").type === "password" ? "text" : "password");
   $("save").addEventListener("click", save);
 }
@@ -54,12 +55,23 @@ function selectedModel() {
 function updateGuide() {
   const choice = selectedModel();
   const custom = choice.provider === "custom";
+  const hostedChoice = choice.provider === "deepseek";
   $("customProviderFields").hidden = !custom;
+  $("apiKeyOptional").hidden = !hostedChoice;
   if (custom) {
     $("keyGuide").innerHTML = `<strong>${escapeHtml(t("customProviderTitle"))}</strong><p>${escapeHtml(t("customProviderGuide"))}</p>`;
+  } else if (hostedChoice) {
+    $("keyGuide").innerHTML = `<strong>${escapeHtml(t("hostedQuotaNote"))}</strong><p>${escapeHtml(t("endpointAutomatic"))}</p>`;
   } else {
     $("keyGuide").innerHTML = `<strong>${escapeHtml(t("noKey"))}</strong><ol><li><a href="${choice.keyUrl}" target="_blank" rel="noreferrer">${escapeHtml(t("openSite", { site: choice.keySite }))}</a></li><li>${escapeHtml(t("createKey"))}</li><li>${escapeHtml(t("pasteBelow"))}</li></ol><p>${escapeHtml(t("endpointAutomatic"))}</p>`;
   }
+  updatePrivacyNote();
+}
+
+function updatePrivacyNote() {
+  const choice = selectedModel();
+  const hostedDraft = choice.provider === "deepseek" && !$("apiKey").value.trim();
+  $("privacyNote").textContent = hostedDraft ? t("hostedPrivacy") : t("apiPrivacy");
 }
 
 function updateLanguageFields() {
@@ -82,9 +94,10 @@ function refreshLocalizedChoices() {
 
 async function save() {
   const apiKey = $("apiKey").value.trim();
-  if (!apiKey) return setStatus(t("keyRequired"), true);
-  if (!/^[\x21-\x7E]+$/.test(apiKey)) return setStatus(t("keyInvalid"), true);
   const choice = selectedModel();
+  const hosted = choice.provider === "deepseek" && !apiKey;
+  if (!hosted && !apiKey) return setStatus(t("keyRequired"), true);
+  if (apiKey && !/^[\x21-\x7E]+$/.test(apiKey)) return setStatus(t("keyInvalid"), true);
   const topics = [...document.querySelectorAll('#topics input:checked')].map((input) => input.value);
   try {
     const nextSettings = validateConfiguration({
@@ -94,6 +107,7 @@ async function save() {
       provider: choice.provider,
       model: choice.model,
       apiKey,
+      useHostedGateway: hosted,
       customEndpoint: $("customEndpoint").value,
       customModel: $("customModel").value,
       topics,

@@ -3,6 +3,7 @@ import {
   LANGUAGE_CHOICES,
   MODEL_CHOICES,
   customEndpointPermission,
+  hasModelAccess,
   normalizeSettings,
   resolveTargetLanguage,
   selectedModelIndex,
@@ -180,10 +181,12 @@ function buildOnboarding() {
 function updateOnboardingGuide() {
   const choice = MODEL_CHOICES[Number($("onboardingModel").value)] || MODEL_CHOICES[0];
   const custom = choice.provider === "custom";
+  const hostedChoice = choice.provider === "deepseek";
   $("onboardingCustomProvider").hidden = !custom;
-  $("onboardingGuide").innerHTML = custom
-    ? escapeText(t("otherModelGuide"))
-    : `${escapeText(t("noKey"))} <a href="${choice.keyUrl}" target="_blank" rel="noreferrer">${escapeText(t("openSite", { site: choice.keySite }))}</a>. ${escapeText(t("endpointAutomatic"))}`;
+  $("onboardingKeyOptional").hidden = !hostedChoice;
+  if (custom) $("onboardingGuide").textContent = t("otherModelGuide");
+  else if (hostedChoice) $("onboardingGuide").textContent = t("hostedQuotaNote");
+  else $("onboardingGuide").innerHTML = `${escapeText(t("noKey"))} <a href="${choice.keyUrl}" target="_blank" rel="noreferrer">${escapeText(t("openSite", { site: choice.keySite }))}</a>. ${escapeText(t("endpointAutomatic"))}`;
 }
 
 function updateOnboardingLanguageFields() {
@@ -217,9 +220,10 @@ function showOnboarding() {
 
 async function completeOnboarding() {
   const apiKey = $("onboardingKey").value.trim();
-  if (!apiKey) return setOnboardingError(t("keyRequired"));
-  if (!/^[\x21-\x7E]+$/.test(apiKey)) return setOnboardingError(t("keyInvalid"));
   const choice = MODEL_CHOICES[Number($("onboardingModel").value)] || MODEL_CHOICES[0];
+  const hosted = choice.provider === "deepseek" && !apiKey;
+  if (!hosted && !apiKey) return setOnboardingError(t("keyRequired"));
+  if (apiKey && !/^[\x21-\x7E]+$/.test(apiKey)) return setOnboardingError(t("keyInvalid"));
   try {
     settings = validateConfiguration({
       ...settings,
@@ -228,6 +232,7 @@ async function completeOnboarding() {
       provider: choice.provider,
       model: choice.model,
       apiKey,
+      useHostedGateway: hosted,
       customEndpoint: $("onboardingEndpoint").value,
       customModel: $("onboardingCustomModel").value,
       topics: [...document.querySelectorAll('#onboardingTopics input:checked')].map((input) => input.value),
@@ -290,7 +295,7 @@ async function loadFeed(force = false, preserveScroll = false) {
     renderStories();
     updateListReadingContext();
     if (activeFeed === "favorites" && !stories.length) setNotice(t("noTopicMatches"), "setup");
-    if (settings.apiKey) await translateStoryTitles();
+    if (hasModelAccess(settings)) await translateStoryTitles();
     else setNotice(t("translationSetup", { language: resolveTargetLanguage(settings).label }), "setup");
     $("updated").textContent = fresh ? t("cachedFiveMinutes") : t("updatedAt", { time: t.date(new Date(), { hour: "2-digit", minute: "2-digit" }) });
   } catch (error) {
@@ -382,7 +387,7 @@ async function openDiscussion(story) {
     const comments = await fetchComments(story.kids || []);
     if (!comments.length) $("comments").textContent = t("noDiscussion");
     else comments.forEach((comment) => renderComment(comment, htmlToText(comment.text || "")));
-    if (settings.apiKey && (storyText || comments.length)) {
+    if (hasModelAccess(settings) && (storyText || comments.length)) {
       const inputs = [...(storyText ? [storyText] : []), ...comments.map((comment) => htmlToText(comment.text || ""))];
       const translations = await translateWithProgress(inputs, storyText ? t("translatingDiscussion") : t("translatingComments"), 3);
       let commentOffset = 0;
@@ -447,7 +452,7 @@ async function openArticle(story) {
     const articleUrl = article.finalUrl || response?.finalUrl || story.url;
     story._libraryExcerpt = article.blocks.join("\n\n").slice(0, 12000);
     setLoading(true, t("translatingArticleCount", { count: t.number(article.blocks.length) }));
-    if (settings.apiKey) {
+    if (hasModelAccess(settings)) {
       const [translatedTitle, ...translations] = await translateWithProgress([article.title, ...article.blocks], t("translatingArticle"), 3);
       story._translatedTitle = translatedTitle;
       renderArticleHeader(translatedTitle, articleUrl, article.title, story);
@@ -1035,7 +1040,7 @@ async function askFromChat(question) {
   const value = String(question || "").trim();
   if (!value || chatBusy) return;
   if (chatScope === "library" && !libraryItems.length) return showToast(t("libraryEmptyAI"));
-  if (!settings.apiKey) {
+  if (!hasModelAccess(settings)) {
     addChatBubble("ai", t("configureAI"), "error");
     return;
   }

@@ -22,7 +22,8 @@ await Promise.all(referenced.map((path) => access(path)));
 
 const files = [
   "src/background.js", "src/content.js", "src/options.js", "src/popup.js",
-  "src/lib/cache.js", "src/lib/providers.js", "src/lib/settings.js", "src/lib/article.js", "src/lib/library.js", "src/lib/ui-i18n.js"
+  "src/lib/cache.js", "src/lib/providers.js", "src/lib/settings.js", "src/lib/install-id.js", "src/lib/article.js", "src/lib/library.js", "src/lib/ui-i18n.js",
+  "worker/src/index.js", "worker/src/gateway.js", "worker/src/pricing.js"
 ];
 for (const file of files) {
   const result = spawnSync(process.execPath, ["--check", file], { encoding: "utf8" });
