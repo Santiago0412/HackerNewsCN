@@ -15,5 +15,5 @@ DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
 [[kv_namespaces]]
 binding = "USAGE_KV"
 # Placeholder ids. Replace both after `npx wrangler kv namespace create USAGE_KV`.
-id = "00000000000000000000000000000000"
-preview_id = "00000000000000000000000000000000"
+id = "cbd7113b6942478ba539d899dba6f84a"
+preview_id = "cbd7113b6942478ba539d899dba6f84a"
