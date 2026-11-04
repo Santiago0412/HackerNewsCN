@@ -11,7 +11,7 @@
 ### 概述
 扩展有两种翻译方式。
 
-- **托管模式（默认）**：不用粘贴 API Key。浏览器把待翻译文本和一个随机安装标识发给运营者部署的额度网关（Cloudflare Worker），网关再转发到 DeepSeek。DeepSeek Key 只放在网关的密钥里，不在扩展包中。网关按安装、按 UTC 日估算花费，上限约 ¥0.10，并且只把花费计数写入 KV，不保存提示词。仓库中的网关域名是占位符，不表示已经有公开服务在运行。
+- **托管模式（默认）**：不用粘贴 API Key。浏览器把待翻译文本和一个随机安装标识发给运营者部署的额度网关（Cloudflare Worker），网关再转发到 DeepSeek。DeepSeek Key 只放在网关的密钥里，不在扩展包中。网关按安装、按 UTC 日估算花费，上限约 ¥0.10，并且只把花费计数写入 KV，不保存提示词。当前公开托管网关为 `https://hncn-gateway.wupengfa007.workers.dev`（仅转发与额度计数，不入库提示词）。
 - **自备 Key**：你粘贴的 API Key、收藏、笔记与翻译缓存仍只保存在本机。请求由浏览器直接发给你选择的模型服务商，不经过额度网关。
 
 ### 我们不收集的数据
@@ -80,7 +80,7 @@
 ### Overview
 The extension has two translation modes.
 
-- **Hosted mode (default):** you do not paste an API key. The browser sends the text and a random install id to the operator's quota gateway (a Cloudflare Worker). The Worker forwards the request to DeepSeek. The DeepSeek key stays in a Worker secret and is not in the extension package. The Worker estimates spend per install per UTC day, caps it at about ¥0.10, and stores only that counter in KV. It does not store prompt text. The gateway host in this repository is a placeholder, not a claim that a public service is already running.
+- **Hosted mode (default):** you do not paste an API key. The browser sends the text and a random install id to the operator's quota gateway (a Cloudflare Worker). The Worker forwards the request to DeepSeek. The DeepSeek key stays in a Worker secret and is not in the extension package. The Worker estimates spend per install per UTC day, caps it at about ¥0.10, and stores only that counter in KV. It does not store prompt text. The public hosted gateway is `https://hncn-gateway.wupengfa007.workers.dev` (forwarding and quota counters only; prompts are not stored).
 - **Your own key:** the API key you paste, plus bookmarks, notes, and the translation cache, stay on your device. The browser calls the provider you choose directly and does not use the gateway.
 
 ### Data we do NOT collect
