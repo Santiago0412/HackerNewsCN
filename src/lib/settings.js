@@ -1,7 +1,7 @@
 // Placeholder origin only. Not a live gateway. After `wrangler deploy`, replace
 // this and the matching manifest.json host_permissions entry with the real host.
 // Never put an API key here.
-export const HOSTED_GATEWAY_URL = "https://hncn-gateway.example.workers.dev";
+export const HOSTED_GATEWAY_URL = "https://hncn-gateway.wupengfa007.workers.dev";
 
 export const DEFAULT_SETTINGS = Object.freeze({
   targetLanguage: "zh-CN",
